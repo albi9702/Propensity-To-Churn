@@ -9,8 +9,13 @@ output:
 ---
 
 ```{r Setup e Librerie, include = FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, out.width = "60%")
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      message = FALSE,
+                      fig.align = "center",
+                      out.width = "60%")
 
+#-- Libraries
 library(tidyverse)
 library(dplyr)
 library(magrittr)
@@ -33,17 +38,17 @@ data_dir <- "C:\\Users\\cafil\\Desktop\\Digital-Marketing\\Dataset\\"
 * `ID_FID`: identify fidelty program (**Key**);
 * `ID_NEG`: identify reference stoe;
 * `TYP_CLI_FID`: identify the main account (Binomyal);
-* `COD_FI`: identify the fidelty program;
+* `COD_FID`: identify the fidelty program;
 * `STATUS_FID`: identify if an account is active (Binomyal);
 * `DT_ACTIVE`: identify the date of activation.
 
-```{r Reading File 1}
+```{r Reading File 1, results='asis'}
 #-- Changed name `df_1_cli_fid` in fidelity
 fidelity <- read_csv2(file.path(data_dir, "raw_1_cli_fid.csv"), #-- Directory
                           na = c("NA", ""))                     #-- Identify Missing Values
 
-knitr::kable(head(fidelity))
-knitr::kable(summary(fidelity))
+knitr::kable(head(fidelity))    #-- First 5 rows
+summary(fidelity)               #-- Descriptive Analysis
 ```
 
 ## Dataset 2
@@ -61,8 +66,8 @@ knitr::kable(summary(fidelity))
 account <- read_csv2(file.path(data_dir, "raw_2_cli_account.csv"), #-- Directory
                               na = c("NA", ""))                    #-- Identify Missing Values
 
-knitr::kable(head(account))
-knitr::kable(summary(account))
+knitr::kable(head(account))    #-- First 5 rows
+summary(account)               #-- Descriptive Analysis
 ```
 
 ## Dataset 3
@@ -78,8 +83,8 @@ knitr::kable(summary(account))
 address <- read_csv2(file.path(data_dir, "raw_3_cli_address.csv"), #-- Directory
                               na = c(""))                          #-- Identify Missing Values
 
-knitr::kable(head(address))
-knitr::kable(summary(address))
+knitr::kable(head(address))    #-- First 5 rows
+summary(address)               #-- Descriptive Analysis
 ```
 
 ## Dataset 4
@@ -95,8 +100,8 @@ knitr::kable(summary(address))
 privacy <- read_csv2(file.path(data_dir, "raw_4_cli_privacy.csv"), #-- Directory
                               na = c("NA", ""))                    #-- Identify Missing Values
 
-knitr::kable(head(privacy))
-knitr::kable(summary(privacy))
+knitr::kable(head(privacy))    #-- First 5 rows
+summary(privacy)               #-- Descriptive Analysis
 ```
 
 ## Dataset 5
@@ -110,8 +115,8 @@ knitr::kable(summary(privacy))
 campaign_category <- read_csv2(file.path(data_dir, "raw_5_camp_cat.csv"), #-- Directory
                            na = c("NA", ""))                              #-- Identify Missing Values
 
-knitr::kable(head(campaign_category))
-knitr::kable(summary(campaign_category))
+knitr::kable(head(campaign_category))    #-- First 5 rows
+summary(campaign_category)               #-- Descriptive Analysis
 ```
 
 ## Dataset 6
@@ -134,8 +139,8 @@ knitr::kable(summary(campaign_category))
 campaign_event <- read_csv2(file.path(data_dir, "raw_6_camp_event.csv"), #-- Directory
                              na = c("NA", ""))                           #-- Identify Missing Values
 
-knitr::kable(head(campaign_event))
-knitr::kable(summary(campaign_event))
+knitr::kable(head(campaign_event))    #-- First 5 rows
+summary(campaign_event)               #-- Descriptive Analysis
 ```
 
 ## Dataset 7
@@ -156,8 +161,8 @@ knitr::kable(summary(campaign_event))
 tickets <- read_csv2(file.path(data_dir, "raw_7_tic.csv"), #-- Directory
                       na = c("NA", ""))                    #-- Identify Missing Values
                       
-knitr::kable(head(tickets))
-knitr::kable(summary(tickets))
+knitr::kable(head(tickets))    #-- First 5 rows
+summary(tickets)               #-- Descriptive Analysis
 ```
 
 # Cleaning Files
@@ -180,10 +185,11 @@ First, we check if there are some duplicate rows:
 
 ```{r Duplicates Fidelity}
 fidelity_clean_duplicate <- fidelity_clean %>%
-                              summarize(TOT_ID_CLIs = n_distinct(ID_CLI),
-                              TOT_ID_FIDs = n_distinct(ID_FID),
-                              TOT_ID_CLIFIDs = n_distinct(paste0(as.character(ID_CLI), "-", as.character(ID_FID))),
-                              TOT_ROWs = n())
+                              summarize(TOT_ID_CLIs = n_distinct(ID_CLI), #-- Number of Total Clients
+                              TOT_ID_FIDs = n_distinct(ID_FID),           #-- Number of Total Fidelity Program
+                              TOT_ID_CLIFIDs = n_distinct(paste0(as.character(ID_CLI), "-",
+                                                                 as.character(ID_FID))),
+                              TOT_ROWs = n())                             #-- Number of Total Rows
 
 knitr::kable(fidelity_clean_duplicate)
 ```
@@ -197,16 +203,21 @@ fidelity_clean <- fidelity_clean                                 %>%
 
 Check the number of fidelity subscriptions per client:
 
-```{r Fidelity Subscriptions}
+```{r Fidelity Subscriptions 1, eval = FALSE}
 num_fid_x_cli <- fidelity_clean     %>%
                    group_by(ID_CLI) %>%                         #-- Group by Client
                    summarize(NUM_FIDs  = n_distinct(ID_FID),    #-- Distinct Fidelity
                              NUM_DATEs = n_distinct(DT_ACTIVE)) #-- Distinct Date
+```
+
+
+```{r Fidelity Subscriptions 2}
+load("fid_cli.RData")
 
 tot_id_cli <- n_distinct(num_fid_x_cli$ID_CLI)
 
 dist_num_fid_x_cli <- num_fid_x_cli %>%
-                        group_by(NUM_FIDs, NUM_DATEs)            %>% #-- Group by Client and Date of Activation
+                        group_by(NUM_FIDs, NUM_DATEs)            %>% #-- Group by Client & Date of Activation
                         summarize(TOT_CLIs = n_distinct(ID_CLI)) %>% #-- Total Clients
                         mutate(PERCENT_CLIs = TOT_CLIs/tot_id_cli)   #-- Percentage
 
@@ -228,20 +239,24 @@ fidelity_clean %>%
 
 After, we combine the information for each client from first subscription (registration date and store for registration) to the last (type of fidelity and status):
 
-```{r Info Combined Fidelity}
+```{r Import Info Combined Fidelty, include = FALSE}
+load("cli_fid_first_last.RData")
+```
+
+```{r Info Combined Fidelity, eval = FALSE}
 client_fidelity_first <- fidelity_clean                        %>%
-                           group_by(ID_CLI)                    %>% #-- Grouped by minimun activity
+                           group_by(ID_CLI)                    %>% #-- Grouped by Client ID
                            filter(DT_ACTIVE == min(DT_ACTIVE)) %>% #-- Filtered by min DT_ACTIVE
                            arrange(ID_FID)                     %>% #-- Sorted by client ID
-                           filter(row_number() == 1)           %>% 
+                           filter(row_number() == 1)           %>% #-- Filter Row #1
                            ungroup()                           %>% 
                            as.data.frame()
 
 client_fidelity_last <- fidelity_clean                        %>%
-                          group_by(ID_CLI)                    %>%
-                          filter(DT_ACTIVE == max(DT_ACTIVE)) %>%
-                          arrange(desc(ID_FID))               %>%
-                          filter(row_number() == 1)           %>%
+                          group_by(ID_CLI)                    %>% #-- Grouped by Client ID
+                          filter(DT_ACTIVE == max(DT_ACTIVE)) %>% #-- Filtered by max DT_ACTIVE
+                          arrange(desc(ID_FID))               %>% #-- Sorted by client ID
+                          filter(row_number() == 1)           %>% #-- Filter Row #1
                           ungroup()                           %>%
                           as.data.frame()
 ```
@@ -256,16 +271,16 @@ fidelity_clean <- client_fidelity_last                      %>%
                              LAST_TYP_CLI_FID = TYP_CLI_FID,
                              LAST_STATUS_FID = STATUS_FID,
                              LAST_DT_ACTIVE = DT_ACTIVE)    %>% #-- Selection of Variables
-                      left_join(client_fidelity_first %>%       #-- Left Join with client_fidelity_first
+                      left_join(client_fidelity_first       %>% #-- Left Join with client_fidelity_first
                                   select(ID_CLI,
                                          FIRST_ID_NEG = ID_NEG,
                                          FIRST_DT_ACTIVE = DT_ACTIVE),
-                                by = 'ID_CLI')              %>%
+                                by = "ID_CLI")              %>%
                       left_join(num_fid_x_cli         %>%       #-- Left Join with num_fid_x_cli
                                   select(ID_CLI,
                                          NUM_FIDs)          %>%
                                   mutate(NUM_FIDs = as.factor(NUM_FIDs)),
-                                by = 'ID_CLI')
+                                by = "ID_CLI")
 ```
 
 ### Exploration Analysis
@@ -273,82 +288,82 @@ First, it's necessary to compute the distribution of the fidelity program:
 
 ```{r Distribution LAST_COD_FID Fidelity}
 df1_dist_codfid <- fidelity_clean          %>%
-  group_by(LAST_COD_FID)                   %>%
-  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
-  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
-  arrange(desc(PERCENT))
+  group_by(LAST_COD_FID)                   %>% #-- Grouped by Fidelty Program
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>% #-- Number of Total Client
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>% #-- Percent
+  arrange(desc(PERCENT))                       #-- Sort by Percent decreasing
 
 knitr::kable(df1_dist_codfid)
 
 ggplot(data = df1_dist_codfid,
-       aes(x = LAST_COD_FID, y = TOT_CLIs)) +
-  geom_bar(stat = "identity",
-           fill = "steelblue") +
-  theme_minimal()
+       aes(x = LAST_COD_FID, y = TOT_CLIs)) +  #-- Dataset to Plot
+  geom_bar(stat = "identity",                  
+           fill = "steelblue") +               #-- Bar Plot
+  theme_minimal()                              #-- ggplot Theme
 ```
 
 Let's explore the status variable (`LAST_STATUS_FID`):
 
 ```{r Distribution LAST_STATUS_FID Fidelity}
-df1_dist_status <- fidelity_clean          %>%
-  group_by(LAST_STATUS_FID)                %>%
-  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
-  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
-  arrange(desc(PERCENT))
+df1_dist_status <- fidelity_clean          %>% 
+  group_by(LAST_STATUS_FID)                %>%   #-- Grouped by Active Account
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%   #-- Number of Total Client
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%   #-- Percent
+  arrange(desc(PERCENT))                         #-- Sort by Percent decreasing
 
 
 ggplot(data = df1_dist_status, 
-       aes(x = LAST_STATUS_FID, y = TOT_CLIs)) +
-  geom_bar(stat = "identity",
-           fill = "steelblue") +
-  theme_minimal()
+       aes(x = LAST_STATUS_FID, y = TOT_CLIs)) + #-- Dataset to Plot
+  geom_bar(stat = "identity",                 
+           fill = "steelblue") +                 #-- Bar Plot
+  theme_minimal()                                #-- ggplot Theme
 ```
 
 Let's explore the fidelity card variable (`NUM_FIDs`):
 
 ```{r Distribution NUM_FIDs Fidelity}
 df1_dist_num <- fidelity_clean             %>%
-  group_by(NUM_FIDs)                       %>%
-  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
-  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
-  arrange(desc(PERCENT))
+  group_by(NUM_FIDs)                       %>% #-- Grouped by Fidelity Program
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>% #-- Number of Total Client
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>% #-- Percent
+  arrange(desc(PERCENT))                       #-- Sort by Percent decreasing
 
-ggplot(data = df1_dist_num,
-       aes(x = NUM_FIDs, y = TOT_CLIs)) +
+ggplot(data = df1_dist_num,               
+       aes(x = NUM_FIDs, y = TOT_CLIs)) +      #-- Dataset to Plot
   geom_bar(stat = "identity",
-           fill = "steelblue") +
-  theme_minimal()
+           fill = "steelblue") +               #-- Bar Plot
+  theme_minimal()                              #-- ggplot Theme
 ```
 
 Let's explore the last fidelity card variable (`LAST_TYP_CLI_FID`):
 
 ```{r Distribution LAST_TYP_CLI_FID Fidelity}
 df1_dist_type <- fidelity_clean            %>%
-  group_by(LAST_TYP_CLI_FID)               %>%
-  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
-  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
-  arrange(desc(PERCENT))
+  group_by(LAST_TYP_CLI_FID)               %>%    #-- Grouped by Main Account
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%    #-- Number of Total Client
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%    #-- Percent
+  arrange(desc(PERCENT))                          #-- Sort by Percent decreasing
 
 ggplot(data = df1_dist_type,
-       aes(x = LAST_TYP_CLI_FID, y = TOT_CLIs)) +
+       aes(x = LAST_TYP_CLI_FID, y = TOT_CLIs)) + #-- Dataset to Plot
   geom_bar(stat = "identity",
-           fill = "steelblue") +
-  theme_minimal()
+           fill = "steelblue") +                  #-- Bar Plot
+  theme_minimal()                                 #-- ggplot Theme
 ```
 
 Let's explore the date of activation card variable (`FIRST_DT_ACTIVE`):
 
 ```{r Distribution FIRST_DT_ACTIVE Fidelity}
-df1_dist_date <- fidelity_clean %>%
-  group_by(FIRST_DT_ACTIVE) %>%
-  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
-  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
-  arrange(desc(PERCENT))
+df1_dist_date <- fidelity_clean            %>%
+  group_by(FIRST_DT_ACTIVE)                %>%   #-- Grouped by Date of Activation
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%   #-- Number of Total Client
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%   #-- Percent
+  arrange(desc(PERCENT))                         #-- Sort by Percent decreasing
 
 ggplot(data = df1_dist_date,
-       aes(x = FIRST_DT_ACTIVE, y = TOT_CLIs)) +
-  geom_line() +
-  theme_minimal()
+       aes(x = FIRST_DT_ACTIVE, y = TOT_CLIs)) + #-- Dataset to Plot
+  geom_line() +                                  #-- Bar Plot
+  theme_minimal()                                #-- ggplot Theme
 ```
 
 ## 2. Account
@@ -365,21 +380,22 @@ knitr::kable(account_clean_duplicate) #-- No Duplicated rows
 
 ```{r Manipulation Account}
 account_clean <- account_clean %>%
-                  mutate(W_PHONE = as.factor(W_PHONE)) %>%                 #-- Factorized
-                  mutate(TYP_CLI_ACCOUNT = as.factor(TYP_CLI_ACCOUNT)) %>% #-- Factorized 
-                  mutate(W_PHONE = fct_explicit_na(W_PHONE, "0")) %>%      #-- Missing Values
-                  mutate(EMAIL_PROVIDER = fct_explicit_na(EMAIL_PROVIDER, "(missing)")) %>% #-- NA with Categorial
-                  mutate(TYP_JOB = fct_explicit_na(TYP_JOB, "(missing)"))  #-- NA with Categorial
+                  mutate(W_PHONE = as.factor(W_PHONE))                  %>% #-- Factorized
+                  mutate(TYP_CLI_ACCOUNT = as.factor(TYP_CLI_ACCOUNT))  %>% #-- Factorized 
+                  mutate(W_PHONE = fct_explicit_na(W_PHONE, "0"))       %>% #-- Missing Values
+                  mutate(EMAIL_PROVIDER = fct_explicit_na(EMAIL_PROVIDER,
+                                                          "(missing)")) %>% #-- NA with Categorial
+                  mutate(TYP_JOB = fct_explicit_na(TYP_JOB, "(missing)"))   #-- NA with Categorial
 ```
 
 ### Reshaping
 
 ```{r Email Provider Account}
-df_2_dist_emailprovider <- account_clean %>%
-                            group_by(EMAIL_PROVIDER) %>%                 #-- Group by EMAIL_PROVIDER
-                            summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
-                            mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
-                            arrange(desc(PERCENT)) %>%
+df_2_dist_emailprovider <- account_clean                             %>%
+                            group_by(EMAIL_PROVIDER)                 %>% #-- Group by EMAIL_PROVIDER
+                            summarize(TOT_CLIs = n_distinct(ID_CLI)) %>% #-- Number of Total Client
+                            mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>% #-- Percent
+                            arrange(desc(PERCENT))                   %>% #-- Sorted by PERCENt
                             as.data.frame()
 
 knitr::kable(head(df_2_dist_emailprovider))
@@ -388,48 +404,51 @@ knitr::kable(head(df_2_dist_emailprovider))
 There are `r n_distinct(df_2_dist_emailprovider$EMAIL_PROVIDER)`: too many different values for `EMAIL_PROVIDER` to be an useful category. We keep the most frequent email provider values and add a common factor level `other` for the remaining:
 
 ```{r Reshape Email Provider Account}
-knitr::kable(df_2_dist_emailprovider %>%
-  arrange(desc(PERCENT)) %>%
-  mutate(PERCENT_COVERED = cumsum(TOT_CLIs)/sum(TOT_CLIs)) %>%
-  as.data.frame() %>%
-  head(20))
+knitr::kable(df_2_dist_emailprovider                       %>%
+  arrange(desc(PERCENT))                                   %>% #-- Sorted by PERCENt
+  mutate(PERCENT_COVERED = cumsum(TOT_CLIs)/sum(TOT_CLIs)) %>% #-- Percent
+  as.data.frame()                                          %>%
+  head(10))
 
 clean_email_providers <- df_2_dist_emailprovider %>%
-  arrange(desc(PERCENT)) %>%
-  mutate(PERCENT_COVERED = cumsum(TOT_CLIs)/sum(TOT_CLIs)) %>%
-  mutate(EMAIL_PROVIDER = as.character(EMAIL_PROVIDER)) %>%
-  mutate(AUX = if_else(PERCENT_COVERED < 0.85 | (PERCENT_COVERED > 0.85 & lag(PERCENT_COVERED) < 0.85), 1,0)) %>%
-  mutate(EMAIL_PROVIDER_CLEAN = if_else(AUX | EMAIL_PROVIDER == "(missing)", EMAIL_PROVIDER, "others"))
+                          arrange(desc(PERCENT)) %>%                                        #-- Sorted by PERCENt
+                          mutate(PERCENT_COVERED = cumsum(TOT_CLIs)/sum(TOT_CLIs)) %>%      #-- Percent
+                          mutate(EMAIL_PROVIDER = as.character(EMAIL_PROVIDER))    %>%
+                          mutate(AUX = if_else(PERCENT_COVERED < 0.85 |
+                                                 (PERCENT_COVERED > 0.85 &
+                                                    lag(PERCENT_COVERED) < 0.85), 1,0)) %>% #-- Percent Covered
+                          mutate(EMAIL_PROVIDER_CLEAN = if_else(AUX | EMAIL_PROVIDER == "(missing)",
+                                                                EMAIL_PROVIDER,
+                                                                "others"))                  #-- Others if Missing
 
 knitr::kable(head(clean_email_providers, 7))
 
-account_clean <- account_clean %>%
-  mutate(EMAIL_PROVIDER = as.character(EMAIL_PROVIDER)) %>%
-  left_join(clean_email_providers %>%
+account_clean <- account_clean                          %>%
+  mutate(EMAIL_PROVIDER = as.character(EMAIL_PROVIDER)) %>% #-- EMAIL_PROVIDER as Character
+  left_join(clean_email_providers                       %>%
               select(EMAIL_PROVIDER, EMAIL_PROVIDER_CLEAN),
-            by = "EMAIL_PROVIDER") %>%
-  select(-EMAIL_PROVIDER) %>%
-  mutate(EMAIL_PROVIDER_CLEAN = as.factor(EMAIL_PROVIDER_CLEAN))
+            by = "EMAIL_PROVIDER")                      %>% #-- Left Join with clean_email_providers
+  select(-EMAIL_PROVIDER)                               %>%
+  mutate(EMAIL_PROVIDER_CLEAN = as.factor(EMAIL_PROVIDER_CLEAN)) #-- Factorized
 ```
-
 
 ```{r Phone Distribution Account}
 df_2_dist_phone <- account_clean %>%
-  group_by(W_PHONE) %>%
-  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
-  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
-  arrange(desc(PERCENT)) %>%
+  group_by(W_PHONE)                        %>% #-- Grouped By W_PHONE
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>% #-- Number of Total Client
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>% #-- Percent
+  arrange(desc(PERCENT))                   %>% #-- Sorted by PERCENT
   as.data.frame()
 
 knitr::kable(df_2_dist_phone)
 ```
 
 ```{r Type Account Distribution Account}
-df_2_dist_account <- account_clean %>%
-  group_by(TYP_CLI_ACCOUNT) %>%
-  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
-  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
-  arrange(desc(PERCENT)) %>%
+df_2_dist_account <- account_clean         %>%
+  group_by(TYP_CLI_ACCOUNT)                %>% #-- Grouped By TYP_CLI_ACCOUNT
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>% #-- Number of Total Client
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>% #-- Percent
+  arrange(desc(PERCENT))                   %>% #-- Sorted by PERCENT
   as.data.frame()
 
 knitr::kable(df_2_dist_account)
@@ -441,57 +460,57 @@ Let's explore the email provider for each client (`EMAIL_PROVIDER_CLEAN`):
 
 ```{r Distribution EMAIL_PROVIDER_CLEAN Account}
 df2_dist_emailproviderclean <- account_clean %>%
-  group_by(EMAIL_PROVIDER_CLEAN) %>%
-  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
-  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
-  arrange(desc(PERCENT))
+  group_by(EMAIL_PROVIDER_CLEAN)             %>% #-- Grouped By EMAIL_PROVIDER_CLEAN
+  summarize(TOT_CLIs = n_distinct(ID_CLI))   %>% #-- Number of Total Client
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs))   %>% #-- Percent
+  arrange(desc(PERCENT))                         #-- Sorted by PERCENT 
 
 ggplot(data = df2_dist_emailproviderclean,
        aes(x = EMAIL_PROVIDER_CLEAN,
-           y = TOT_CLIs)) +
+           y = TOT_CLIs)) +                      #-- Dataset to Plot
   geom_bar(stat = "identity",
-           fill = "steelblue") +
-  theme_minimal()
+           fill = "steelblue") +                 #-- Bar Plot
+  theme_minimal()                                #-- ggplot Theme
 ```
 
 Let's explore the type job for each client (`TYP_JOB`):
 
 ```{r Distribution TYP_JOB Account}
-df_2_dist_job <- account_clean %>%
-  group_by(TYP_JOB) %>%
-  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
-  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
-  arrange(desc(PERCENT)) %>%
+df_2_dist_job <- account_clean             %>%
+  group_by(TYP_JOB)                        %>% #-- Grouped By TYP_JOB
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>% #-- Number of Total Client
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>% #-- Percent
+  arrange(desc(PERCENT))                   %>% #-- Sorted by PERCENT 
   as.data.frame()
 
 knitr::kable(df_2_dist_job)
 
 ggplot(data = df_2_dist_job,
        aes(x = TYP_JOB,
-           y = TOT_CLIs)) +
-  geom_bar(stat = "identity",
-           fill = "steelblue") +
-  theme_minimal()
+           y = TOT_CLIs)) +                    #-- Dataset to Plot
+  geom_bar(stat = "identity", 
+           fill = "steelblue") +               #-- Bar Plot
+  theme_minimal()                              #-- ggplot Theme
 ```
 
 Let's explore the type account for each client (`TYP_CLI_ACCOUNT`):
 
 ```{r Distribution TYP_CLI_ACCOUNT Account}
-df_2_dist_account <- account_clean %>%
-  group_by(TYP_CLI_ACCOUNT) %>%
-  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
-  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
-  arrange(desc(PERCENT)) %>%
+df_2_dist_account <- account_clean         %>%
+  group_by(TYP_CLI_ACCOUNT)                %>% #-- Grouped By TYP_CLI_ACCOUNT
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>% #-- Number of Total Client
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>% #-- Percent
+  arrange(desc(PERCENT))                   %>% #-- Sorted by PERCENT 
   as.data.frame()
 
 knitr::kable(df_2_dist_account)
 
 ggplot(data = df_2_dist_phone,
        aes(x = W_PHONE,
-           y = TOT_CLIs)) +
+           y = TOT_CLIs)) +                    #-- Dataset to Plot
   geom_bar(stat = "identity",
-           fill = "steelblue") +
-  theme_minimal()
+           fill = "steelblue") +               #-- Bar Plot
+  theme_minimal()                              #-- ggplot Theme
 ```
 
 ## 3. Address
@@ -500,8 +519,8 @@ We check for duplicate rows:
 
 ```{r Duplicated Address}
 knitr::kable(address_clean %>%
-               summarize(TOT_ID_ADDRESSes = n_distinct(ID_ADDRESS),
-               TOT_ROWs = n()))
+               summarize(TOT_ID_ADDRESSes = n_distinct(ID_ADDRESS), #-- Total of Addresses
+               TOT_ROWs = n()))                                     #-- Total Rows
 
 #-- Remove Duplicates
 address_clean <- address_clean %>%
@@ -512,7 +531,7 @@ Let's manipulate missing values:
 
 ```{r Manipulation Address}
 address_clean <- address_clean %>%
-                    mutate(CAP = as.character(CAP)) %>% #-- Factorized
+                    mutate(CAP = as.character(CAP))                   %>% #-- Factorized
                     filter(!is.na(CAP) & !is.na(PRV) & !is.na(REGION))
 ```
 
@@ -522,7 +541,7 @@ Let's explore the CAP address (`CAP`):
 
 ```{r Distribution CAP Address}
 nrow(address_clean %>%
-  distinct(CAP))
+  distinct(CAP))       #-- Number of CAP
 ```
 
 There are `r nrow(address_clean %>% distinct(CAP))`: too many to plot.
@@ -531,7 +550,7 @@ Let's explore the province address (`PRV`):
 
 ```{r Distribution Province Address}
 nrow(address_clean %>%
-  distinct(PRV))
+  distinct(PRV))       #-- Number of Provinces
 ```
 
 There are `r nrow(address_clean %>% distinct(PRV))`: too many to plot.
@@ -539,19 +558,19 @@ There are `r nrow(address_clean %>% distinct(PRV))`: too many to plot.
 Let's explore the region for each client (`REGION`):
 
 ```{r Distribution REGION Address}
-df3_dist_region<- address_clean %>%
-  group_by(REGION) %>%
-  summarize(TOT_ADDRESS = n_distinct(ID_ADDRESS)) %>%
-  mutate(PERCENT = TOT_ADDRESS/sum(TOT_ADDRESS)) %>%
-  arrange(desc(PERCENT))
+df3_dist_region<- address_clean                   %>%
+  group_by(REGION)                                %>%  #-- Grouped By REGION
+  summarize(TOT_ADDRESS = n_distinct(ID_ADDRESS)) %>%  #-- Number of Total Client
+  mutate(PERCENT = TOT_ADDRESS/sum(TOT_ADDRESS))  %>%  #-- Percent
+  arrange(desc(PERCENT))                               #-- Sorted by PERCENT 
 
 knitr::kable(head(df3_dist_region))
 
 ggplot(data = df3_dist_region, aes(x = REGION,
-                                   y = TOT_ADDRESS)) +
+                                   y = TOT_ADDRESS)) + #-- Dataset to Plot
   geom_bar(stat = "identity",
-           fill = "steelblue") +
-  theme_minimal()
+           fill = "steelblue") +                       #-- Bar Plot
+  theme_minimal()                                      #-- ggplot Theme
 ```
 
 ## 4. Privacy
@@ -560,14 +579,14 @@ We check for duplicate rows:
 
 ```{r Duplicate Privacy}
 knitr::kable(privacy_clean %>%
-               summarize(TOT_ID_CLIs = n_distinct(ID_CLI),
-               TOT_ROWs = n())) #-- No Duplicated rows
+               summarize(TOT_ID_CLIs = n_distinct(ID_CLI), #-- Total Client
+               TOT_ROWs = n()))                            #-- No Duplicated rows
 ```
 
 Let's manipulate the privacy dataset:
 
 ```{r Manipulation Privacy}
-privacy_clean <- privacy_clean %>%
+privacy_clean <- privacy_clean                       %>%
   mutate(FLAG_PRIVACY_1 = as.factor(FLAG_PRIVACY_1)) %>% #-- Factorized
   mutate(FLAG_PRIVACY_2 = as.factor(FLAG_PRIVACY_2)) %>% #-- Factorized
   mutate(FLAG_DIRECT_MKT = as.factor(FLAG_DIRECT_MKT))   #-- Factorized
@@ -578,58 +597,58 @@ privacy_clean <- privacy_clean %>%
 Let's explore the first privacy method (FLAG_PRIVACY_1):
 
 ```{r Dsitribution FLAG_PRIVACY_1 Address}
-df4_dist_privacy1<- privacy_clean %>%
-                      group_by(FLAG_PRIVACY_1) %>%
-                      summarize(TOT_ID = n_distinct(ID_CLI)) %>%
-                      mutate(PERCENT = TOT_ID/sum(TOT_ID)) %>%
-                      arrange(desc(PERCENT))
+df4_dist_privacy1<- privacy_clean                            %>%
+                      group_by(FLAG_PRIVACY_1)               %>% #-- Grouped By FLAG_PRIVACY_1
+                      summarize(TOT_ID = n_distinct(ID_CLI)) %>% #-- Number of Total Client
+                      mutate(PERCENT = TOT_ID/sum(TOT_ID))   %>% #-- Percent
+                      arrange(desc(PERCENT))                     #-- Sorted by PERCENT 
 
 knitr::kable(df4_dist_privacy1)
 
 ggplot(data = df4_dist_privacy1,
        aes(x = FLAG_PRIVACY_1,
-           y = TOT_ID)) +
+           y = TOT_ID)) +        #-- Data to Plot
   geom_bar(stat = "identity",
-           fill = "steelblue") +
-  theme_minimal()
+           fill = "steelblue") + #-- Bar Plot
+  theme_minimal()                #-- ggplot Theme
 ```
 
 Let's explore the second privacy method (FLAG_PRIVACY_2):
 
 ```{r Dsitribution FLAG_PRIVACY_2 Address}
-df4_dist_privacy2<- privacy_clean %>%
-                      group_by(FLAG_PRIVACY_2) %>%
-                      summarize(TOT_ID = n_distinct(ID_CLI)) %>%
-                      mutate(PERCENT = TOT_ID/sum(TOT_ID)) %>%
-                      arrange(desc(PERCENT))
+df4_dist_privacy2<- privacy_clean                            %>%
+                      group_by(FLAG_PRIVACY_2)               %>% #-- Grouped By FLAG_PRIVACY_1
+                      summarize(TOT_ID = n_distinct(ID_CLI)) %>% #-- Number of Total Client
+                      mutate(PERCENT = TOT_ID/sum(TOT_ID))   %>% #-- Percent
+                      arrange(desc(PERCENT))                     #-- Sorted by PERCENT 
 
 knitr::kable(df4_dist_privacy2)
 
 ggplot(data = df4_dist_privacy2,
        aes(x = FLAG_PRIVACY_2,
-           y = TOT_ID)) +
+           y = TOT_ID)) +        #-- Data to Plot
   geom_bar(stat = "identity",
-           fill = "steelblue") +
-  theme_minimal()
+           fill = "steelblue") + #-- Bar Plot
+  theme_minimal()                #-- ggplot Theme
 ```
 
 Let's explore the privacy MTK method (FLAG_DIRECT_MKT):
 
 ```{r Dsitribution FLAG_DIRECT_MKT Address}
-df4_dist_privacy_mkt<- privacy_clean %>%
-                          group_by(FLAG_DIRECT_MKT) %>%
-                          summarize(TOT_ID = n_distinct(ID_CLI)) %>%
-                          mutate(PERCENT = TOT_ID/sum(TOT_ID)) %>%
-                          arrange(desc(PERCENT))
+df4_dist_privacy_mkt<- privacy_clean                             %>%
+                          group_by(FLAG_DIRECT_MKT)              %>% #-- Grouped By FLAG_PRIVACY_1
+                          summarize(TOT_ID = n_distinct(ID_CLI)) %>% #-- Number of Total Client
+                          mutate(PERCENT = TOT_ID/sum(TOT_ID))   %>% #-- Percent
+                          arrange(desc(PERCENT))                     #-- Sorted by PERCENT 
 
 knitr::kable(df4_dist_privacy_mkt)
 
 ggplot(data = df4_dist_privacy_mkt,
        aes(x = FLAG_DIRECT_MKT,
-           y = TOT_ID)) +
+           y = TOT_ID)) +        #-- Data to Plot
   geom_bar(stat = "identity",
-           fill = "steelblue") +
-  theme_minimal()
+           fill = "steelblue") + #-- Bar Plot
+  theme_minimal()                #-- ggplot Theme
 ```
 
 ## 5. Campaign Category
@@ -646,10 +665,11 @@ campaign_category_clean <- campaign_category_clean %>%
 Let's format dates and times:
 
 ```{r Manipulation Campaign Event}
-campaign_event_clean <- campaign_event_clean %>%
-                              mutate(EVENT_DATETIME = as.POSIXct(EVENT_DATE, format="%Y-%m-%dT%H:%M:%S")) %>%
-                              mutate(EVENT_HOUR = hour(EVENT_DATETIME)) %>%
-                              mutate(EVENT_DATE = as.Date(EVENT_DATETIME))
+campaign_event_clean <- campaign_event_clean                                                    %>%
+                              mutate(EVENT_DATETIME = as.POSIXct(EVENT_DATE,
+                                                                 format = "%Y-%m-%dT%H:%M:%S")) %>% #-- Formatting Dates
+                              mutate(EVENT_HOUR = hour(EVENT_DATETIME))                         %>% #-- Hours
+                              mutate(EVENT_DATE = as.Date(EVENT_DATETIME))                          #-- As Date
 ```
 
 ### Reshaping
@@ -659,24 +679,24 @@ We remap the event type values `E` (*ERROR*) and `B` [*BOUNCE*] into a level `F`
 ```{r Remap TYP_EVENT Campaign Event}
 campaign_event_clean <- campaign_event_clean %>%
                           mutate(TYP_EVENT = as.factor(if_else(TYP_EVENT == "E" | TYP_EVENT == "B",
-                                                               "F", as.character(TYP_EVENT)))) %>%
+                                                               "F", as.character(TYP_EVENT)))) %>%  #-- Remapping Values
                           left_join(campaign_category_clean,
-                                    by = "ID_CAMP")
+                                    by = "ID_CAMP")                                                 #-- Left Join
 
 ```
 
 Also, is necessary to organize the data adding to each sending event the corresponding opens/clicks/fails:
 
 ```{r Sends Campaign Event}
-df_sends <- campaign_event_clean %>%
-              filter(TYP_EVENT == "S") %>%
-              select(-TYP_EVENT) %>%
+df_sends <- campaign_event_clean             %>%
+              filter(TYP_EVENT == "S")       %>% #-- Filter Sends
+              select(-TYP_EVENT)             %>%
               select(ID_EVENT_S = ID_EVENT,
                      ID_CLI,
                      ID_CAMP,
                      TYP_CAMP,
                      ID_DELIVERY,
-                     SEND_DATE = EVENT_DATE) %>%
+                     SEND_DATE = EVENT_DATE) %>% #-- Variable Selection
               as.data.frame()
 ```
 
@@ -686,34 +706,36 @@ There could be multiple opens of the same communication:
 2. Consider explicitely only the first open.
 
 ```{r Open Campaign Event}
-df_opens_prep <- campaign_event_clean %>%
-                    filter(TYP_EVENT == "V") %>%
-                    select(-TYP_EVENT) %>%
+df_opens_prep <- campaign_event_clean              %>%
+                    filter(TYP_EVENT == "V")       %>% #-- Filter Sends
+                    select(-TYP_EVENT)             %>%
                     select(ID_EVENT_O = ID_EVENT,
                            ID_CLI,
                            ID_CAMP,
                            TYP_CAMP,
                            ID_DELIVERY,
                            OPEN_DATETIME = EVENT_DATETIME,
-                           OPEN_DATE = EVENT_DATE) %>%
+                           OPEN_DATE = EVENT_DATE) %>% #-- Variable Selection
                     as.data.frame()
 
-total_opens <- df_opens_prep %>%
-  group_by(ID_CLI,
-           ID_CAMP,
-           ID_DELIVERY) %>%
-  summarize(NUM_OPENs = n_distinct(ID_EVENT_O))
-
-df_opens <- df_opens_prep %>%
-  left_join(total_opens,
-            by = c("ID_CLI", "ID_CAMP", "ID_DELIVERY")) %>%
-  group_by(ID_CLI,
-           ID_CAMP,
-           ID_DELIVERY) %>%
-  filter(OPEN_DATETIME == min(OPEN_DATETIME)) %>%
-  filter(row_number() == 1) %>%
-  ungroup() %>%
-  as.data.frame()
+total_opens <- df_opens_prep                                  %>%
+                  group_by(ID_CLI,
+                           ID_CAMP,
+                           ID_DELIVERY)                       %>% #-- Grouped By Client, Campaign & Delivery
+                  summarize(NUM_OPENs = n_distinct(ID_EVENT_O))   #-- Number of Total Mail Opened
+                
+                df_opens <- df_opens_prep                     %>%
+                  left_join(total_opens,
+                            by = c("ID_CLI",
+                                   "ID_CAMP",
+                                   "ID_DELIVERY"))            %>% #-- Left join with total_opens
+                  group_by(ID_CLI,
+                           ID_CAMP,
+                           ID_DELIVERY)                       %>% #-- Grouped By Client, Campaign & Delivery
+                  filter(OPEN_DATETIME == min(OPEN_DATETIME)) %>% #-- Filter By Min Mail Opened
+                  filter(row_number() == 1)                   %>%
+                  ungroup()                                   %>%
+                  as.data.frame()
 ```
 
 There could be multiple clicks of the same communication:
@@ -722,97 +744,107 @@ There could be multiple clicks of the same communication:
 2. Consider explicitely only the first click.
 
 ```{r Clicks Campaign Event}
-df_clicks_prep <- campaign_event_clean %>%
-  filter(TYP_EVENT == "C") %>%
-  select(-TYP_EVENT) %>%
-  select(ID_EVENT_C = ID_EVENT,
-         ID_CLI,
-         ID_CAMP,
-         TYP_CAMP,
-         ID_DELIVERY,
-         CLICK_DATETIME = EVENT_DATETIME,
-         CLICK_DATE = EVENT_DATE)
+df_clicks_prep <- campaign_event_clean                              %>%
+                      filter(TYP_EVENT == "C")                      %>% #-- Filter By Clicks
+                      select(-TYP_EVENT)                            %>%
+                      select(ID_EVENT_C = ID_EVENT,
+                             ID_CLI,
+                             ID_CAMP,
+                             TYP_CAMP,
+                             ID_DELIVERY,
+                             CLICK_DATETIME = EVENT_DATETIME,
+                             CLICK_DATE = EVENT_DATE)                   #-- Variable Selection
+                    
+total_clicks <- df_clicks_prep                                    %>%
+                    group_by(ID_CLI,
+                             ID_CAMP,
+                             ID_DELIVERY)                         %>% #-- Grouped By Client, Campaign & Delivery
+                    summarize(NUM_CLICKs = n_distinct(ID_EVENT_C))    #-- Number of Total Clicks
 
-total_clicks <- df_clicks_prep %>%
-  group_by(ID_CLI,
-           ID_CAMP,
-           ID_DELIVERY) %>%
-  summarize(NUM_CLICKs = n_distinct(ID_EVENT_C))
-
-df_clicks <- df_clicks_prep %>%
-  left_join(total_clicks,
-            by = c("ID_CLI", "ID_CAMP", "ID_DELIVERY")) %>%
-  group_by(ID_CLI,
-           ID_CAMP,
-           ID_DELIVERY) %>%
-  filter(CLICK_DATETIME == min(CLICK_DATETIME)) %>%
-  filter(row_number() == 1) %>%
-  ungroup() %>%
-  as.data.frame()
+df_clicks <- df_clicks_prep                                   %>%
+                left_join(total_clicks,
+                          by = c("ID_CLI",
+                                 "ID_CAMP",
+                                 "ID_DELIVERY"))              %>% #-- Left Join with total_clicks
+                group_by(ID_CLI,
+                         ID_CAMP,
+                         ID_DELIVERY)                         %>% #-- Grouped By Client, Campaign & Delivery
+                filter(CLICK_DATETIME == min(CLICK_DATETIME)) %>% #-- Filter By Min Mail Clicked
+                filter(row_number() == 1) %>%
+                ungroup()                                     %>%
+                as.data.frame()
 ```
 
 ```{r Fails Campaign Event}
-df_fails <- campaign_event_clean %>%
-  filter(TYP_EVENT == "F") %>%
-  select(-TYP_EVENT) %>%
-  select(ID_EVENT_F = ID_EVENT,
-         ID_CLI,
-         ID_CAMP,
-         TYP_CAMP,
-         ID_DELIVERY,
-         FAIL_DATETIME = EVENT_DATETIME,
-         FAIL_DATE = EVENT_DATE) %>%
-  group_by(ID_CLI, ID_CAMP, ID_DELIVERY) %>%
-  filter(FAIL_DATETIME == min(FAIL_DATETIME)) %>%
-  filter(row_number() == 1) %>%
-  ungroup() %>%
-  as.data.frame()
+df_fails <- campaign_event_clean              %>%
+              filter(TYP_EVENT == "F")                    %>% #-- Filter By Fail
+              select(-TYP_EVENT)                          %>%
+              select(ID_EVENT_F = ID_EVENT,
+                     ID_CLI,
+                     ID_CAMP,
+                     TYP_CAMP,
+                     ID_DELIVERY,
+                     FAIL_DATETIME = EVENT_DATETIME,
+                     FAIL_DATE = EVENT_DATE)              %>% #-- Variable Selection
+              group_by(ID_CLI,
+                       ID_CAMP,
+                       ID_DELIVERY)                       %>% #-- Grouped By Client, Campaign & Delivery
+              filter(FAIL_DATETIME == min(FAIL_DATETIME)) %>% #-- Filter By Min Mail Failed
+              filter(row_number() == 1)                   %>%
+              ungroup()                                   %>%
+              as.data.frame()
 ```
 
 We combine them in one variable:
 
 ```{r Combine Campaign Event}
-campaign_event_clean_final <- df_sends %>%
-  left_join(df_opens,
-            by = c("ID_CLI", "ID_CAMP", "ID_DELIVERY", "TYP_CAMP")
-  ) %>%
-  filter(is.na(OPEN_DATE) | SEND_DATE <= OPEN_DATE) %>%
-  left_join(df_clicks,
-            by = c("ID_CLI", "ID_CAMP", "ID_DELIVERY", "TYP_CAMP")
-  ) %>%
-  filter(is.na(CLICK_DATE) | OPEN_DATE <= CLICK_DATE) %>%
-  left_join(df_fails,
-            by = c("ID_CLI", "ID_CAMP", "ID_DELIVERY", "TYP_CAMP")
-  ) %>%
-  filter(is.na(FAIL_DATE) | SEND_DATE <= FAIL_DATE) %>%
-  mutate(OPENED = !is.na(ID_EVENT_O)) %>%
-  mutate(CLICKED = !is.na(ID_EVENT_C)) %>%
-  mutate(FAILED = !is.na(ID_EVENT_F)) %>%
-  mutate(DAYS_TO_OPEN = as.integer(OPEN_DATE - SEND_DATE)) %>%
-  select(ID_EVENT_S,
-         ID_CLI,
-         ID_CAMP,
-         TYP_CAMP,
-         ID_DELIVERY,
-         SEND_DATE,
-         OPENED,
-         OPEN_DATE,
-         DAYS_TO_OPEN,
-         NUM_OPENs,
-         CLICKED,
-         CLICK_DATE,
-         NUM_CLICKs,
-         FAILED)
+campaign_event_clean_final <- df_sends                     %>%
+                                left_join(df_opens,
+                                          by = c("ID_CLI",
+                                                 "ID_CAMP",
+                                                 "ID_DELIVERY",
+                                                 "TYP_CAMP"))                            %>% #-- Left Join with df_opens
+                                filter(is.na(OPEN_DATE) | SEND_DATE <= OPEN_DATE)        %>%
+                                left_join(df_clicks,
+                                          by = c("ID_CLI",
+                                                 "ID_CAMP",
+                                                 "ID_DELIVERY",
+                                                 "TYP_CAMP"))                            %>% #-- Left Join with df_clicks
+                                filter(is.na(CLICK_DATE) | OPEN_DATE <= CLICK_DATE)      %>%
+                                left_join(df_fails,
+                                          by = c("ID_CLI",
+                                                 "ID_CAMP",
+                                                 "ID_DELIVERY",
+                                                 "TYP_CAMP"))                            %>% #-- Left Join with df_fails
+                                filter(is.na(FAIL_DATE) | SEND_DATE <= FAIL_DATE)        %>% 
+                                mutate(OPENED = !is.na(ID_EVENT_O))                      %>% #-- Opened
+                                mutate(CLICKED = !is.na(ID_EVENT_C))                     %>% #-- Clicked
+                                mutate(FAILED = !is.na(ID_EVENT_F))                      %>% #-- Failed
+                                mutate(DAYS_TO_OPEN = as.integer(OPEN_DATE - SEND_DATE)) %>%
+                                select(ID_EVENT_S,
+                                       ID_CLI,
+                                       ID_CAMP,
+                                       TYP_CAMP,
+                                       ID_DELIVERY,
+                                       SEND_DATE,
+                                       OPENED,
+                                       OPEN_DATE,
+                                       DAYS_TO_OPEN,
+                                       NUM_OPENs,
+                                       CLICKED,
+                                       CLICK_DATE,
+                                       NUM_CLICKs,
+                                       FAILED)                                                #-- Variable Selection
 ```
 
 ### Explanatory Analysis
 
 ```{r Summaries Campaign Event}
 df6_overview <- campaign_event_clean_final %>% 
-  summarize(MIN_DATE = min(SEND_DATE),
-            MAX_DATE = max(SEND_DATE),
-            TOT_EVENTs = n_distinct(ID_EVENT_S),
-            TOT_CLIs = n_distinct(ID_CLI))
+                  summarize(MIN_DATE = min(SEND_DATE),           #-- Min Date
+                            MAX_DATE = max(SEND_DATE),           #-- Max Date
+                            TOT_EVENTs = n_distinct(ID_EVENT_S), #-- Number of Total Events
+                            TOT_CLIs = n_distinct(ID_CLI))       #-- Number of Total Clicks
 
 knitr::kable(df6_overview)
 ```
@@ -821,241 +853,243 @@ Below there's a general overview about the type of campaign variable (`TYP_CAMP`
 
 ```{r Distribution TYP_CAMP Campaign Event}
 df6_overviewbytyp <- campaign_event_clean_final %>%
-  group_by(TYP_CAMP) %>%
-  summarize(MIN_DATE = min(SEND_DATE),
-            MAX_DATE = max(SEND_DATE),
-            TOT_EVENTs = n_distinct(ID_EVENT_S),
-            TOT_CLIs = n_distinct(ID_CLI))
+                        group_by(TYP_CAMP)      %>%                    #-- Grouped By TYP_CAMP
+                        summarize(MIN_DATE = min(SEND_DATE),           #-- Min Date
+                                  MAX_DATE = max(SEND_DATE),           #-- Max Date
+                                  TOT_EVENTs = n_distinct(ID_EVENT_S), #-- Number of Total Events
+                                  TOT_CLIs = n_distinct(ID_CLI))       #-- Number of Total Clicks
 
 knitr::kable(df6_overviewbytyp)
 
 ggplot(data = df6_overviewbytyp,
        aes(x = TYP_CAMP,
-           y = TOT_EVENTs)) +
+           y = TOT_EVENTs)) +    #-- Dataset to Plot
   geom_bar(stat = "identity",
-           fill = "steelblue") +
-  theme_minimal()
+           fill = "steelblue") + #-- Bar Plot
+  theme_minimal()                #-- ggplot Theme
 ```
 
 Below there's a general overview about the variable `OPENED`:
 
 ```{r Distribution OPENED Campaign Event}
-df6_dist_opened <- campaign_event_clean_final %>%
-  group_by(OPENED) %>%
-  summarize(TOT_EVENTs = n_distinct(ID_EVENT_S),
-            TOT_CLIs = n_distinct(ID_CLI)) %>%
-  mutate(TYP_CAMP = 'ALL') %>%
-  mutate(PERCENT_EVENTs = TOT_EVENTs/df6_overview$TOT_EVENTs,
-         PERCENT_CLIs = TOT_CLIs/df6_overview$TOT_CLIs)
+df6_dist_opened <- campaign_event_clean_final                        %>%
+                      group_by(OPENED)                               %>%
+                      summarize(TOT_EVENTs = n_distinct(ID_EVENT_S),              #-- Number of Total Events
+                                TOT_CLIs = n_distinct(ID_CLI))       %>%          #-- Number of Total Clicks                  
+                      mutate(TYP_CAMP = 'ALL')                       %>%
+                      mutate(PERCENT_EVENTs = TOT_EVENTs/df6_overview$TOT_EVENTs, #-- Percent
+                             PERCENT_CLIs = TOT_CLIs/df6_overview$TOT_CLIs)       #-- Percent
 
 knitr::kable(df6_dist_opened)
 
-  ggplot(data = df6_dist_opened,
+ggplot(data = df6_dist_opened,
          aes(fill = OPENED,
              x = TYP_CAMP,
-             y = TOT_EVENTs)) +
+             y = TOT_EVENTs)) +   #-- Data to Plot
     geom_bar(stat = "identity",
-             position = "fill") +
-    theme_minimal()
+             position = "fill") + #-- Bar Plot
+    theme_minimal()               #-- ggplot Theme
 ```
 
 Below there's a general overview about the type of campaign variable opened (`TYP_CAMP`):
 
 ```{r Distribution OPENED by TYP_CAMP Campaign Event}
-df6_dist_openedbytyp <- campaign_event_clean_final %>%
-  group_by(TYP_CAMP, OPENED)  %>%
-  summarize(TOT_EVENTs = n_distinct(ID_EVENT_S),
-            TOT_CLIs = n_distinct(ID_CLI)) %>%
-  left_join(df6_overviewbytyp %>%
-              select(TYP_CAMP,
-                     ALL_TOT_EVENTs = TOT_EVENTs,
-                     ALL_TOT_CLIs = TOT_CLIs),
-            by = 'TYP_CAMP') %>%
-  mutate(PERCENT_EVENTs = TOT_EVENTs/ALL_TOT_EVENTs,
-         PERCENT_CLIs = TOT_CLIs/ALL_TOT_CLIs) %>%
-  select(TYP_CAMP,
-         OPENED,
-         TOT_EVENTs,
-         TOT_CLIs,
-         PERCENT_EVENTs,
-         PERCENT_CLIs)
+df6_dist_openedbytyp <- campaign_event_clean_final                         %>%
+                          group_by(TYP_CAMP, OPENED)                       %>% #-- Grouped By TYP_CAMP & OPENED
+                          summarize(TOT_EVENTs = n_distinct(ID_EVENT_S),
+                                    TOT_CLIs = n_distinct(ID_CLI))         %>% #-- Number of Total Events & Client
+                          left_join(df6_overviewbytyp %>%
+                                      select(TYP_CAMP,
+                                             ALL_TOT_EVENTs = TOT_EVENTs,
+                                             ALL_TOT_CLIs = TOT_CLIs),
+                                    by = 'TYP_CAMP')                       %>% #-- Left Join with df6_overviewbytyp
+                          mutate(PERCENT_EVENTs = TOT_EVENTs/ALL_TOT_EVENTs,
+                                 PERCENT_CLIs = TOT_CLIs/ALL_TOT_CLIs)     %>% #-- Percent
+                          select(TYP_CAMP,
+                                 OPENED,
+                                 TOT_EVENTs,
+                                 TOT_CLIs,
+                                 PERCENT_EVENTs,
+                                 PERCENT_CLIs)                                 #-- Variable Selection
 
 knitr::kable(df6_dist_openedbytyp)
 
 ggplot(data = df6_dist_openedbytyp,
        aes(fill = OPENED,
            x = TYP_CAMP,
-           y = TOT_EVENTs)) +
-  geom_bar(stat = "identity") +
-  theme_minimal()
+           y = TOT_EVENTs)) +       #-- Data to Plot
+  geom_bar(stat = "identity") +     #-- Bar Plot
+  theme_minimal()                   #-- ggplot Theme
 
 ggplot(data = df6_dist_openedbytyp,
        aes(fill = OPENED,
            x = TYP_CAMP,
-           y = TOT_EVENTs)) +
+           y = TOT_EVENTs)) +       #-- Data to Plot
   geom_bar(position = "fill",
-           stat = "identity") +
-  theme_minimal()
+           stat = "identity") +     #-- Bar Plot
+  theme_minimal()                   #-- ggplot Theme
 ```
 
 Below there's a general overview about the days after an email is opened (`DAYS_TO_OPEN`):
 
 ```{r Distribution DAYS_TO_OPEN Campaign Event}
-df6_dist_daystoopen <- campaign_event_clean_final %>%
-  filter(OPENED) %>%
-  group_by(ID_CLI) %>%
-  summarize(AVG_DAYS_TO_OPEN = floor(mean(DAYS_TO_OPEN))) %>%
-  ungroup() %>%
-  group_by(AVG_DAYS_TO_OPEN) %>%
-  summarize(TOT_CLIs = n_distinct(ID_CLI))
+df6_dist_daystoopen <- campaign_event_clean_final                                 %>%
+                          filter(OPENED)                                          %>%
+                          group_by(ID_CLI)                                        %>% #-- Grouped By ID_CLI
+                          summarize(AVG_DAYS_TO_OPEN = floor(mean(DAYS_TO_OPEN))) %>% #-- Mean Day to Open
+                          ungroup()                                               %>%
+                          group_by(AVG_DAYS_TO_OPEN)                              %>% #-- Grouped By AVG_DAYS_TO_OPEN
+                          summarize(TOT_CLIs = n_distinct(ID_CLI))
 
 knitr::kable(df6_dist_daystoopen)
 
 ggplot(data = df6_dist_daystoopen %>%
          filter(AVG_DAYS_TO_OPEN < 14),
        aes(x = AVG_DAYS_TO_OPEN,
-           y = TOT_CLIs)) +
+           y = TOT_CLIs)) +             #-- Data to Plot
   geom_bar(stat = "identity",
-           fill = "steelblue") +
-  theme_minimal()
+           fill = "steelblue") +        #-- Bar Plot
+  theme_minimal()                       #-- ggplot Theme
 ```
 
 Below there's a general overview about the days after an email is opened (`DAYS_TO_OPEN`):
 
 ```{r Distribution AVG_DAYS_TO_OPEN Campaign Event}
-df6_dist_daystoopen_vs_cumulate <- df6_dist_daystoopen %>%
-  arrange(AVG_DAYS_TO_OPEN) %>%
-  mutate(PERCENT_COVERED = cumsum(TOT_CLIs)/sum(TOT_CLIs))
+df6_dist_daystoopen_vs_cumulate <- df6_dist_daystoopen          %>%
+                                      arrange(AVG_DAYS_TO_OPEN) %>%
+                                      mutate(PERCENT_COVERED = cumsum(TOT_CLIs)/sum(TOT_CLIs))
 
 ggplot(data = df6_dist_daystoopen_vs_cumulate %>%
          filter(AVG_DAYS_TO_OPEN < 14),
        aes(x = AVG_DAYS_TO_OPEN,
-           y = PERCENT_COVERED)) +
+           y = PERCENT_COVERED)) +           #-- Data to Plot
   geom_line() +
-  geom_point() +
-  scale_x_continuous(breaks = seq(0,14,2), minor_breaks = 0:14) +
-  theme_minimal()
+  geom_point() +                             #-- Bar Plot
+  scale_x_continuous(breaks = seq(0, 14, 2),
+                     minor_breaks = 0:14) +  #-- Scale X
+  theme_minimal()                            #-- ggplot Theme
 ```
 
 Below there's a general overview about the days after an email is clicked:
 
 ```{r Distribution CLICKED by TYP_CAMP Campaign Event}
-df6_dist_clickedbytyp <- campaign_event_clean_final %>%
-  group_by(TYP_CAMP, CLICKED)  %>%
-  summarize(TOT_EVENTs = n_distinct(ID_EVENT_S),
-            TOT_CLIs = n_distinct(ID_CLI)) %>%
-  left_join(df6_overviewbytyp %>%
-              select(TYP_CAMP,
-                     ALL_TOT_EVENTs = TOT_EVENTs,
-                     ALL_TOT_CLIs = TOT_CLIs)
-            , by='TYP_CAMP') %>%
-  mutate(PERCENT_EVENTs = TOT_EVENTs/ALL_TOT_EVENTs,
-         PERCENT_CLIs = TOT_CLIs/ALL_TOT_CLIs) %>%
-  select(TYP_CAMP,
-         CLICKED,
-         TOT_EVENTs,
-         TOT_CLIs,
-         PERCENT_EVENTs,
-         PERCENT_CLIs)
+df6_dist_clickedbytyp <- campaign_event_clean_final                      %>%
+                            group_by(TYP_CAMP,
+                                     CLICKED)                            %>% #-- Grouped By TYP_CAMP & CLICKED
+                            summarize(TOT_EVENTs = n_distinct(ID_EVENT_S),
+                                      TOT_CLIs = n_distinct(ID_CLI))     %>% #-- Number of Total Event & Client
+                            left_join(df6_overviewbytyp                  %>%
+                                        select(TYP_CAMP,
+                                               ALL_TOT_EVENTs = TOT_EVENTs,
+                                               ALL_TOT_CLIs = TOT_CLIs),
+                                      by='TYP_CAMP')                     %>% #-- Left Join with df6_overviewbytyp
+                            mutate(PERCENT_EVENTs = TOT_EVENTs/ALL_TOT_EVENTs,
+                                   PERCENT_CLIs = TOT_CLIs/ALL_TOT_CLIs) %>% #-- Percent
+                            select(TYP_CAMP,
+                                   CLICKED,
+                                   TOT_EVENTs,
+                                   TOT_CLIs,
+                                   PERCENT_EVENTs,
+                                   PERCENT_CLIs)                             #-- Variable Selection
 
 knitr::kable(df6_dist_clickedbytyp)
 
 ggplot(data = df6_dist_clickedbytyp,
-       aes(fill = CLICKED, x = TYP_CAMP, y = TOT_EVENTs)) +
-  geom_bar(stat = "identity") +
-  theme_minimal()
+       aes(fill = CLICKED,
+           x = TYP_CAMP,
+           y = TOT_EVENTs)) +   #-- Data to Plot
+  geom_bar(stat = "identity") + #-- Bar Plot
+  theme_minimal()               #-- ggplot Theme
 
 ggplot(data = df6_dist_clickedbytyp,
        aes(fill = CLICKED,
              x = TYP_CAMP,
-             y = TOT_EVENTs)) +
+             y = TOT_EVENTs)) + #-- Data to Plot
   geom_bar(position = "fill",
-           stat = "identity") +
-  theme_minimal()
+           stat = "identity") + #-- Bar Plot
+  theme_minimal()               #-- ggplot Theme
 
 ```
 
 Below there's a general overview about the days after an email is failed:
 
 ```{r Distribution Campaign Event}
-df6_dist_failedbytyp <- campaign_event_clean_final %>%
-  group_by(TYP_CAMP, FAILED)  %>%
-  summarize(TOT_EVENTs = n_distinct(ID_EVENT_S)
-            , TOT_CLIs = n_distinct(ID_CLI)) %>%
-  left_join(df6_overviewbytyp %>%
-              select(TYP_CAMP,
-                     ALL_TOT_EVENTs = TOT_EVENTs,
-                     ALL_TOT_CLIs = TOT_CLIs),
-            by='TYP_CAMP') %>%
-  mutate(PERCENT_EVENTs = TOT_EVENTs/ALL_TOT_EVENTs,
-         PERCENT_CLIs = TOT_CLIs/ALL_TOT_CLIs) %>%
-  select(TYP_CAMP,
-         FAILED,
-         TOT_EVENTs,
-         TOT_CLIs,
-         PERCENT_EVENTs,
-         PERCENT_CLIs)
+df6_dist_failedbytyp <- campaign_event_clean_final                     %>%
+                          group_by(TYP_CAMP,
+                                   FAILED)                             %>% #-- Grouped By TYP_CAMP & FAILED
+                          summarize(TOT_EVENTs = n_distinct(ID_EVENT_S),
+                                    TOT_CLIs = n_distinct(ID_CLI))     %>% #-- Number of Total Client & Events
+                          left_join(df6_overviewbytyp                  %>%
+                                      select(TYP_CAMP,
+                                             ALL_TOT_EVENTs = TOT_EVENTs,
+                                             ALL_TOT_CLIs = TOT_CLIs),
+                                    by = 'TYP_CAMP')                   %>% #-- Left Join with df6_overviewbytyp
+                          mutate(PERCENT_EVENTs = TOT_EVENTs/ALL_TOT_EVENTs,
+                                 PERCENT_CLIs = TOT_CLIs/ALL_TOT_CLIs) %>% #-- Percent
+                          select(TYP_CAMP,
+                                 FAILED,
+                                 TOT_EVENTs,
+                                 TOT_CLIs,
+                                 PERCENT_EVENTs,
+                                 PERCENT_CLIs)                             #-- Variable Selection
 
 knitr::kable(df6_dist_failedbytyp)
 
 ggplot(data = df6_dist_failedbytyp,
        aes(fill = FAILED,
            x = TYP_CAMP,
-           y = TOT_EVENTs)) +
-  geom_bar(stat = "identity") +
-  theme_minimal()
+           y = TOT_EVENTs)) +   #-- Data to Plot
+  geom_bar(stat = "identity") + #-- Bar Plot
+  theme_minimal()               #-- ggplot Theme
 
 ggplot(data = df6_dist_failedbytyp,
        aes(fill = FAILED,
            x = TYP_CAMP,
-           y = TOT_EVENTs)) +
-  geom_bar(position = "fill",
-           stat = "identity") +
-  theme_minimal()
+           y = TOT_EVENTs)) +   #-- Data to Plot
+  geom_bar(position = "fill",   
+           stat = "identity") + #-- Bar Plot
+  theme_minimal()               #-- ggplot Theme
 ```
 
 Below there's a general overview about the number of clicks opening an email:
 
 ```{r Distribution NUM_OPENs Campaign Event}
-df6_dist_numopens<- campaign_event_clean_final %>%
-  group_by(NUM_OPENs) %>%
-  summarize(TOT_ID = n_distinct(ID_EVENT_S)) %>%
-  mutate(PERCENT = TOT_ID/sum(TOT_ID)) %>%
-  arrange(desc(PERCENT))
+df6_dist_numopens <- campaign_event_clean_final                  %>%
+                      group_by(NUM_OPENs)                        %>% #-- Grouped By NUM_OPENs
+                      summarize(TOT_ID = n_distinct(ID_EVENT_S)) %>% #-- Number of Total Event
+                      mutate(PERCENT = TOT_ID/sum(TOT_ID))       %>% #-- Percent
+                      arrange(desc(PERCENT))                         #-- Sort By Percent
 
 df6_dist_numopens
 
-plot_df6_dist_numopens <- (
-  ggplot(data = df6_dist_numopens
-         , aes(x = NUM_OPENs, y = TOT_ID)) +
-    geom_bar(stat = "identity"
-             , fill = "steelblue") +
-    xlim(0, 15)+
-    theme_minimal()
-)
-
-plot_df6_dist_numopens
-
+ggplot(data = df6_dist_numopens,
+       aes(x = NUM_OPENs,
+           y = TOT_ID)) +        #-- Data to Plot
+  geom_bar(stat = "identity",
+           fill = "steelblue") + #-- Bar Plot
+  xlim(0, 15)+                   #-- X Limit
+  theme_minimal()                #-- ggplot Theme
 ```
 
 Below there's a general overview about the number of clicks in the email:
 
 ```{r Distribution NUM_CLICKs Campaign Event}
-df6_dist_numclicks <- campaign_event_clean_final %>%
-  group_by(NUM_CLICKs) %>%
-  summarize(TOT_ID = n_distinct(ID_EVENT_S)) %>%
-  mutate(PERCENT = TOT_ID/sum(TOT_ID)) %>%
-  arrange(desc(PERCENT))
+df6_dist_numclicks <- campaign_event_clean_final                   %>%
+                        group_by(NUM_CLICKs)                       %>% #-- Grouped By NUM_CLICKs
+                        summarize(TOT_ID = n_distinct(ID_EVENT_S)) %>% #-- Number of Total Event
+                        mutate(PERCENT = TOT_ID/sum(TOT_ID))       %>% #-- Percent
+                        arrange(desc(PERCENT))                         #-- Sort By Percent
 
 
 knitr::kable(df6_dist_numclicks)
 
 ggplot(data = df6_dist_numclicks,
-       aes(x = NUM_CLICKs, y = TOT_ID)) +
+       aes(x = NUM_CLICKs,
+           y = TOT_ID)) +        #-- Data to Plot
   geom_bar(stat = "identity",
-           fill = "steelblue") +
-  xlim(0, 15) +
-  theme_minimal()
+           fill = "steelblue") + #-- Bar Plot
+  xlim(0, 15) +                  #-- X Limit
+  theme_minimal()                #-- ggplot Theme
 ```
 
 ## 7. Purchase and Refund
@@ -1064,7 +1098,8 @@ Let's format dates and times and factorize `DIREZIONE`:
 
 ```{r Manipulation Tickets}
 tickets_clean <- tickets_clean %>%
-                    mutate(TIC_DATETIME = as.POSIXct(DATETIME, format = "%Y-%m-%dT%H%M%S")) %>%
+                    mutate(TIC_DATETIME = as.POSIXct(DATETIME,
+                                                     format = "%Y-%m-%dT%H%M%S")) %>%
                     mutate(TIC_HOUR = hour(TIC_DATETIME)) %>%
                     mutate(TIC_DATE = as.Date(TIC_DATETIME)) %>%
                     select(-DATETIME) %>%
