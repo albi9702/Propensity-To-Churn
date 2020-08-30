@@ -1,0 +1,1447 @@
+---
+title: "Script Digital Marketing"
+author: "Alberto Filosa"
+date: "17/8/2020"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r Setup e Librerie, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, out.width = "60%")
+
+library(tidyverse)
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+library(forcats)
+library(lubridate)
+library(RQuantLib)
+
+set.seed(123456) #-- Set seed for same results
+
+data_dir <- "C:\\Users\\cafil\\Desktop\\Digital-Marketing\\Dataset\\"
+```
+
+# Reading Files
+
+## Dataset 1
+`raw_1_cli_fid.csv` contains info on the fidelty subscriptions of each costumer account:
+
+* `ID_CLI`: identify client (*Foreign Key*);
+* `ID_FID`: identify fidelty program (**Key**);
+* `ID_NEG`: identify reference stoe;
+* `TYP_CLI_FID`: identify the main account (Binomyal);
+* `COD_FI`: identify the fidelty program;
+* `STATUS_FID`: identify if an account is active (Binomyal);
+* `DT_ACTIVE`: identify the date of activation.
+
+```{r Reading File 1}
+#-- Changed name `df_1_cli_fid` in fidelity
+fidelity <- read_csv2(file.path(data_dir, "raw_1_cli_fid.csv"), #-- Directory
+                          na = c("NA", ""))                     #-- Identify Missing Values
+
+knitr::kable(head(fidelity))
+knitr::kable(summary(fidelity))
+```
+
+## Dataset 2
+`raw_2_cli_account.csv` contains info on each customer account:
+
+* `ID_CLI`: identify the client (**Key**);
+* `EMAIL_PROVIDER`: identify the email account provider;
+* `W_PHONE`: identify if a phone number is added (Binomyal);
+* `ID_ADDRESS`: identify the address (*Foreign Key*);
+* `TYP_CLI_ACCOUNT`: identify the account type of the client;
+* `TYP_JOB`: identify the client job.
+
+```{r Reading File 2}
+#-- Changed name `df_2_cli_account` in account
+account <- read_csv2(file.path(data_dir, "raw_2_cli_account.csv"), #-- Directory
+                              na = c("NA", ""))                    #-- Identify Missing Values
+
+knitr::kable(head(account))
+knitr::kable(summary(account))
+```
+
+## Dataset 3
+`raw_3_cli_address.csv` contains information on the address corresponding to a customer account:
+
+* `ID_ADDRESS`: identify the address (**Key**);
+* `CAP`: identify the postal code;
+* `PRV`: identify the province;
+* `REGION`: identify the region.
+
+```{r Reading File 3}
+#-- Changed name `df_3_cli_address` in address
+address <- read_csv2(file.path(data_dir, "raw_3_cli_address.csv"), #-- Directory
+                              na = c(""))                          #-- Identify Missing Values
+
+knitr::kable(head(address))
+knitr::kable(summary(address))
+```
+
+## Dataset 4
+`raw_4_cli_privacy.csv` contains information on the privacy policies accepted by each customer:
+
+* `ID_CLI`: identify the client (*Foreign Key*);
+* `FLAG_PRIVACY_1`: identify the flag privacy (binomyal);
+* `FLAG_PRIVACY_2`: identify the flag profiling (*Foreign Key*);
+* `FLAG_DIRECT_MKT`: identify the flag direct marketing (binomyal).
+
+```{r Reading File 4}
+#-- Changed name `df_4_cli_privacy` in privacy
+privacy <- read_csv2(file.path(data_dir, "raw_4_cli_privacy.csv"), #-- Directory
+                              na = c("NA", ""))                    #-- Identify Missing Values
+
+knitr::kable(head(privacy))
+knitr::kable(summary(privacy))
+```
+
+## Dataset 5
+`raw_5_camp_cat.csv` contains the categorization of the marketing email communications:
+
+* `ID_CAMP`: identify the email campaign (**Key**);
+* `TYP_CAMP`: identify the type email campaign.
+
+```{r Reading File 5}
+#-- Changed name `df_5_camp_cat` in campaign_category
+campaign_category <- read_csv2(file.path(data_dir, "raw_5_camp_cat.csv"), #-- Directory
+                           na = c("NA", ""))                              #-- Identify Missing Values
+
+knitr::kable(head(campaign_category))
+knitr::kable(summary(campaign_category))
+```
+
+## Dataset 6
+`raw_6_camp_event.csv` contains the events (sents, opens and clicks) related to the marketing email communications:
+
+* `ID_EVENT`: identify the feedback event (**Key**);
+* `ID_CLI`: identify the client (*Foreign Key*);
+* `ID_CAMP`: identify the email campaign (*Foreign Key*);
+* `ID_DELIVERY`: identify the delivery;
+* `TYP_EVENT`: identify the feedback event:
+    + S = Send;
+    + V = Open;
+    + C = Click;
+    + B = Bounce;
+    + E = Error;
+* `EVENT_DATE`: identify the datetime event.
+
+```{r Reading File 6}
+#-- Changed name `df_6_camp_event` in campaign_event
+campaign_event <- read_csv2(file.path(data_dir, "raw_6_camp_event.csv"), #-- Directory
+                             na = c("NA", ""))                           #-- Identify Missing Values
+
+knitr::kable(head(campaign_event))
+knitr::kable(summary(campaign_event))
+```
+
+## Dataset 7
+`raw_7_tic.csv` contains the purchase and refund transaction of each customer:
+
+* `ID_SCONTRINO`: identify the transaction (all products have same ID);
+* `ID_CLI`: identify the client (*Foreign Key*);
+* `ID_NEG`: identify the reference store (*Foreign Key*);
+* `ID_ARTICOLO`: identify the purchased or refund item;
+* `COD_REPARTO`: identify the business unit corresponding to the item;
+* `DIREZIONE`: identify the purchase (1) or refund (-1);
+* `IMPORTO_LORDO`: identify the gross amount as the sum of net amount and the discount applied;
+* `SCONTO`: identify the discount applied (negative if refund);
+* `DATETIME`: datetime of the transaction.
+
+```{r Reading File 7}
+#-- Changed name `df_7_tic` in tickets
+tickets <- read_csv2(file.path(data_dir, "raw_7_tic.csv"), #-- Directory
+                      na = c("NA", ""))                    #-- Identify Missing Values
+                      
+knitr::kable(head(tickets))
+knitr::kable(summary(tickets))
+```
+
+# Cleaning Files
+
+First of all, it is reccomended to create a copy for all datasets before data manipulation: 
+
+```{r Copy Files}
+fidelity_clean <- fidelity          #-- Dataset 1
+account_clean  <- account           #-- Dataset 2
+address_clean  <- address           #-- Dataset 3
+privacy_clean  <- privacy           #-- Dataset 4
+campaign_category_clean <- campaign_category #-- Dataset 5
+campaign_event_clean    <- campaign_event    #-- Dataset 6
+tickets_clean  <- tickets           #-- Dataset 7
+```
+
+## 1. Fidelity
+
+First, we check if there are some duplicate rows:
+
+```{r Duplicates Fidelity}
+fidelity_clean_duplicate <- fidelity_clean %>%
+                              summarize(TOT_ID_CLIs = n_distinct(ID_CLI),
+                              TOT_ID_FIDs = n_distinct(ID_FID),
+                              TOT_ID_CLIFIDs = n_distinct(paste0(as.character(ID_CLI), "-", as.character(ID_FID))),
+                              TOT_ROWs = n())
+
+knitr::kable(fidelity_clean_duplicate)
+```
+
+```{r Manipulation Fidelity}
+fidelity_clean <- fidelity_clean                                 %>% 
+                    mutate(DT_ACTIVE = as.Date(DT_ACTIVE))       %>% #-- Formatting dates 
+                    mutate(TYP_CLI_FID = as.factor(TYP_CLI_FID)) %>% #-- Factorize TYP_CLI_FID
+                    mutate(STATUS_FID = as.factor(STATUS_FID))       #-- Factorize STATUS_FID
+```
+
+Check the number of fidelity subscriptions per client:
+
+```{r Fidelity Subscriptions}
+num_fid_x_cli <- fidelity_clean     %>%
+                   group_by(ID_CLI) %>%                         #-- Group by Client
+                   summarize(NUM_FIDs  = n_distinct(ID_FID),    #-- Distinct Fidelity
+                             NUM_DATEs = n_distinct(DT_ACTIVE)) #-- Distinct Date
+
+tot_id_cli <- n_distinct(num_fid_x_cli$ID_CLI)
+
+dist_num_fid_x_cli <- num_fid_x_cli %>%
+                        group_by(NUM_FIDs, NUM_DATEs)            %>% #-- Group by Client and Date of Activation
+                        summarize(TOT_CLIs = n_distinct(ID_CLI)) %>% #-- Total Clients
+                        mutate(PERCENT_CLIs = TOT_CLIs/tot_id_cli)   #-- Percentage
+
+knitr::kable(dist_num_fid_x_cli)
+```
+
+Note that there are clients with multiple fidelity subscriptions. In details, let examine clients with multiple subscriptions:
+
+```{r Multiple Fidelity}
+num_fid_x_cli %>%
+  filter(NUM_FIDs == 3)
+
+fidelity_clean %>%
+  filter(ID_CLI == 621814)
+
+fidelity_clean %>%
+  filter(ID_CLI == 320880)
+```
+
+After, we combine the information for each client from first subscription (registration date and store for registration) to the last (type of fidelity and status):
+
+```{r Info Combined Fidelity}
+client_fidelity_first <- fidelity_clean                        %>%
+                           group_by(ID_CLI)                    %>% #-- Grouped by minimun activity
+                           filter(DT_ACTIVE == min(DT_ACTIVE)) %>% #-- Filtered by min DT_ACTIVE
+                           arrange(ID_FID)                     %>% #-- Sorted by client ID
+                           filter(row_number() == 1)           %>% 
+                           ungroup()                           %>% 
+                           as.data.frame()
+
+client_fidelity_last <- fidelity_clean                        %>%
+                          group_by(ID_CLI)                    %>%
+                          filter(DT_ACTIVE == max(DT_ACTIVE)) %>%
+                          arrange(desc(ID_FID))               %>%
+                          filter(row_number() == 1)           %>%
+                          ungroup()                           %>%
+                          as.data.frame()
+```
+
+We left join `client_fidelity_first` and `num_fid_x_cli` in `df_1_cli_fid_last`: 
+
+```{r Left Join Fidelity}
+fidelity_clean <- client_fidelity_last                      %>%
+                      select(ID_CLI,
+                             ID_FID,
+                             LAST_COD_FID = COD_FID,
+                             LAST_TYP_CLI_FID = TYP_CLI_FID,
+                             LAST_STATUS_FID = STATUS_FID,
+                             LAST_DT_ACTIVE = DT_ACTIVE)    %>% #-- Selection of Variables
+                      left_join(client_fidelity_first %>%       #-- Left Join with client_fidelity_first
+                                  select(ID_CLI,
+                                         FIRST_ID_NEG = ID_NEG,
+                                         FIRST_DT_ACTIVE = DT_ACTIVE),
+                                by = 'ID_CLI')              %>%
+                      left_join(num_fid_x_cli         %>%       #-- Left Join with num_fid_x_cli
+                                  select(ID_CLI,
+                                         NUM_FIDs)          %>%
+                                  mutate(NUM_FIDs = as.factor(NUM_FIDs)),
+                                by = 'ID_CLI')
+```
+
+### Exploration Analysis
+First, it's necessary to compute the distribution of the fidelity program:
+
+```{r Distribution LAST_COD_FID Fidelity}
+df1_dist_codfid <- fidelity_clean          %>%
+  group_by(LAST_COD_FID)                   %>%
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
+  arrange(desc(PERCENT))
+
+knitr::kable(df1_dist_codfid)
+
+ggplot(data = df1_dist_codfid,
+       aes(x = LAST_COD_FID, y = TOT_CLIs)) +
+  geom_bar(stat = "identity",
+           fill = "steelblue") +
+  theme_minimal()
+```
+
+Let's explore the status variable (`LAST_STATUS_FID`):
+
+```{r Distribution LAST_STATUS_FID Fidelity}
+df1_dist_status <- fidelity_clean          %>%
+  group_by(LAST_STATUS_FID)                %>%
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
+  arrange(desc(PERCENT))
+
+
+ggplot(data = df1_dist_status, 
+       aes(x = LAST_STATUS_FID, y = TOT_CLIs)) +
+  geom_bar(stat = "identity",
+           fill = "steelblue") +
+  theme_minimal()
+```
+
+Let's explore the fidelity card variable (`NUM_FIDs`):
+
+```{r Distribution NUM_FIDs Fidelity}
+df1_dist_num <- fidelity_clean             %>%
+  group_by(NUM_FIDs)                       %>%
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
+  arrange(desc(PERCENT))
+
+ggplot(data = df1_dist_num,
+       aes(x = NUM_FIDs, y = TOT_CLIs)) +
+  geom_bar(stat = "identity",
+           fill = "steelblue") +
+  theme_minimal()
+```
+
+Let's explore the last fidelity card variable (`LAST_TYP_CLI_FID`):
+
+```{r Distribution LAST_TYP_CLI_FID Fidelity}
+df1_dist_type <- fidelity_clean            %>%
+  group_by(LAST_TYP_CLI_FID)               %>%
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
+  arrange(desc(PERCENT))
+
+ggplot(data = df1_dist_type,
+       aes(x = LAST_TYP_CLI_FID, y = TOT_CLIs)) +
+  geom_bar(stat = "identity",
+           fill = "steelblue") +
+  theme_minimal()
+```
+
+Let's explore the date of activation card variable (`FIRST_DT_ACTIVE`):
+
+```{r Distribution FIRST_DT_ACTIVE Fidelity}
+df1_dist_date <- fidelity_clean %>%
+  group_by(FIRST_DT_ACTIVE) %>%
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
+  arrange(desc(PERCENT))
+
+ggplot(data = df1_dist_date,
+       aes(x = FIRST_DT_ACTIVE, y = TOT_CLIs)) +
+  geom_line() +
+  theme_minimal()
+```
+
+## 2. Account
+
+We check for duplicate rows:
+
+```{r Duplicated Account}
+account_clean_duplicate <- account_clean %>%
+                            summarize(TOT_ID_CLIs = n_distinct(ID_CLI),
+                                      TOT_ROWs = n())
+                          
+knitr::kable(account_clean_duplicate) #-- No Duplicated rows
+```
+
+```{r Manipulation Account}
+account_clean <- account_clean %>%
+                  mutate(W_PHONE = as.factor(W_PHONE)) %>%                 #-- Factorized
+                  mutate(TYP_CLI_ACCOUNT = as.factor(TYP_CLI_ACCOUNT)) %>% #-- Factorized 
+                  mutate(W_PHONE = fct_explicit_na(W_PHONE, "0")) %>%      #-- Missing Values
+                  mutate(EMAIL_PROVIDER = fct_explicit_na(EMAIL_PROVIDER, "(missing)")) %>% #-- NA with Categorial
+                  mutate(TYP_JOB = fct_explicit_na(TYP_JOB, "(missing)"))  #-- NA with Categorial
+```
+
+### Reshaping
+
+```{r Email Provider Account}
+df_2_dist_emailprovider <- account_clean %>%
+                            group_by(EMAIL_PROVIDER) %>%                 #-- Group by EMAIL_PROVIDER
+                            summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
+                            mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
+                            arrange(desc(PERCENT)) %>%
+                            as.data.frame()
+
+knitr::kable(head(df_2_dist_emailprovider))
+```
+
+There are `r n_distinct(df_2_dist_emailprovider$EMAIL_PROVIDER)`: too many different values for `EMAIL_PROVIDER` to be an useful category. We keep the most frequent email provider values and add a common factor level `other` for the remaining:
+
+```{r Reshape Email Provider Account}
+knitr::kable(df_2_dist_emailprovider %>%
+  arrange(desc(PERCENT)) %>%
+  mutate(PERCENT_COVERED = cumsum(TOT_CLIs)/sum(TOT_CLIs)) %>%
+  as.data.frame() %>%
+  head(20))
+
+clean_email_providers <- df_2_dist_emailprovider %>%
+  arrange(desc(PERCENT)) %>%
+  mutate(PERCENT_COVERED = cumsum(TOT_CLIs)/sum(TOT_CLIs)) %>%
+  mutate(EMAIL_PROVIDER = as.character(EMAIL_PROVIDER)) %>%
+  mutate(AUX = if_else(PERCENT_COVERED < 0.85 | (PERCENT_COVERED > 0.85 & lag(PERCENT_COVERED) < 0.85), 1,0)) %>%
+  mutate(EMAIL_PROVIDER_CLEAN = if_else(AUX | EMAIL_PROVIDER == "(missing)", EMAIL_PROVIDER, "others"))
+
+knitr::kable(head(clean_email_providers, 7))
+
+account_clean <- account_clean %>%
+  mutate(EMAIL_PROVIDER = as.character(EMAIL_PROVIDER)) %>%
+  left_join(clean_email_providers %>%
+              select(EMAIL_PROVIDER, EMAIL_PROVIDER_CLEAN),
+            by = "EMAIL_PROVIDER") %>%
+  select(-EMAIL_PROVIDER) %>%
+  mutate(EMAIL_PROVIDER_CLEAN = as.factor(EMAIL_PROVIDER_CLEAN))
+```
+
+
+```{r Phone Distribution Account}
+df_2_dist_phone <- account_clean %>%
+  group_by(W_PHONE) %>%
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
+  arrange(desc(PERCENT)) %>%
+  as.data.frame()
+
+knitr::kable(df_2_dist_phone)
+```
+
+```{r Type Account Distribution Account}
+df_2_dist_account <- account_clean %>%
+  group_by(TYP_CLI_ACCOUNT) %>%
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
+  arrange(desc(PERCENT)) %>%
+  as.data.frame()
+
+knitr::kable(df_2_dist_account)
+```
+
+### Exploration Analysis
+
+Let's explore the email provider for each client (`EMAIL_PROVIDER_CLEAN`):
+
+```{r Distribution EMAIL_PROVIDER_CLEAN Account}
+df2_dist_emailproviderclean <- account_clean %>%
+  group_by(EMAIL_PROVIDER_CLEAN) %>%
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
+  arrange(desc(PERCENT))
+
+ggplot(data = df2_dist_emailproviderclean,
+       aes(x = EMAIL_PROVIDER_CLEAN,
+           y = TOT_CLIs)) +
+  geom_bar(stat = "identity",
+           fill = "steelblue") +
+  theme_minimal()
+```
+
+Let's explore the type job for each client (`TYP_JOB`):
+
+```{r Distribution TYP_JOB Account}
+df_2_dist_job <- account_clean %>%
+  group_by(TYP_JOB) %>%
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
+  arrange(desc(PERCENT)) %>%
+  as.data.frame()
+
+knitr::kable(df_2_dist_job)
+
+ggplot(data = df_2_dist_job,
+       aes(x = TYP_JOB,
+           y = TOT_CLIs)) +
+  geom_bar(stat = "identity",
+           fill = "steelblue") +
+  theme_minimal()
+```
+
+Let's explore the type account for each client (`TYP_CLI_ACCOUNT`):
+
+```{r Distribution TYP_CLI_ACCOUNT Account}
+df_2_dist_account <- account_clean %>%
+  group_by(TYP_CLI_ACCOUNT) %>%
+  summarize(TOT_CLIs = n_distinct(ID_CLI)) %>%
+  mutate(PERCENT = TOT_CLIs/sum(TOT_CLIs)) %>%
+  arrange(desc(PERCENT)) %>%
+  as.data.frame()
+
+knitr::kable(df_2_dist_account)
+
+ggplot(data = df_2_dist_phone,
+       aes(x = W_PHONE,
+           y = TOT_CLIs)) +
+  geom_bar(stat = "identity",
+           fill = "steelblue") +
+  theme_minimal()
+```
+
+## 3. Address
+
+We check for duplicate rows:
+
+```{r Duplicated Address}
+knitr::kable(address_clean %>%
+               summarize(TOT_ID_ADDRESSes = n_distinct(ID_ADDRESS),
+               TOT_ROWs = n()))
+
+#-- Remove Duplicates
+address_clean <- address_clean %>%
+                  distinct()
+```
+
+Let's manipulate missing values:
+
+```{r Manipulation Address}
+address_clean <- address_clean %>%
+                    mutate(CAP = as.character(CAP)) %>% #-- Factorized
+                    filter(!is.na(CAP) & !is.na(PRV) & !is.na(REGION))
+```
+
+### Explanatory Analysis
+
+Let's explore the CAP address (`CAP`):
+
+```{r Distribution CAP Address}
+nrow(address_clean %>%
+  distinct(CAP))
+```
+
+There are `r nrow(address_clean %>% distinct(CAP))`: too many to plot.
+
+Let's explore the province address (`PRV`):
+
+```{r Distribution Province Address}
+nrow(address_clean %>%
+  distinct(PRV))
+```
+
+There are `r nrow(address_clean %>% distinct(PRV))`: too many to plot.
+
+Let's explore the region for each client (`REGION`):
+
+```{r Distribution REGION Address}
+df3_dist_region<- address_clean %>%
+  group_by(REGION) %>%
+  summarize(TOT_ADDRESS = n_distinct(ID_ADDRESS)) %>%
+  mutate(PERCENT = TOT_ADDRESS/sum(TOT_ADDRESS)) %>%
+  arrange(desc(PERCENT))
+
+knitr::kable(head(df3_dist_region))
+
+ggplot(data = df3_dist_region, aes(x = REGION,
+                                   y = TOT_ADDRESS)) +
+  geom_bar(stat = "identity",
+           fill = "steelblue") +
+  theme_minimal()
+```
+
+## 4. Privacy
+
+We check for duplicate rows:
+
+```{r Duplicate Privacy}
+knitr::kable(privacy_clean %>%
+               summarize(TOT_ID_CLIs = n_distinct(ID_CLI),
+               TOT_ROWs = n())) #-- No Duplicated rows
+```
+
+Let's manipulate the privacy dataset:
+
+```{r Manipulation Privacy}
+privacy_clean <- privacy_clean %>%
+  mutate(FLAG_PRIVACY_1 = as.factor(FLAG_PRIVACY_1)) %>% #-- Factorized
+  mutate(FLAG_PRIVACY_2 = as.factor(FLAG_PRIVACY_2)) %>% #-- Factorized
+  mutate(FLAG_DIRECT_MKT = as.factor(FLAG_DIRECT_MKT))   #-- Factorized
+```
+
+### Explanatory Analysis
+
+Let's explore the first privacy method (FLAG_PRIVACY_1):
+
+```{r Dsitribution FLAG_PRIVACY_1 Address}
+df4_dist_privacy1<- privacy_clean %>%
+                      group_by(FLAG_PRIVACY_1) %>%
+                      summarize(TOT_ID = n_distinct(ID_CLI)) %>%
+                      mutate(PERCENT = TOT_ID/sum(TOT_ID)) %>%
+                      arrange(desc(PERCENT))
+
+knitr::kable(df4_dist_privacy1)
+
+ggplot(data = df4_dist_privacy1,
+       aes(x = FLAG_PRIVACY_1,
+           y = TOT_ID)) +
+  geom_bar(stat = "identity",
+           fill = "steelblue") +
+  theme_minimal()
+```
+
+Let's explore the second privacy method (FLAG_PRIVACY_2):
+
+```{r Dsitribution FLAG_PRIVACY_2 Address}
+df4_dist_privacy2<- privacy_clean %>%
+                      group_by(FLAG_PRIVACY_2) %>%
+                      summarize(TOT_ID = n_distinct(ID_CLI)) %>%
+                      mutate(PERCENT = TOT_ID/sum(TOT_ID)) %>%
+                      arrange(desc(PERCENT))
+
+knitr::kable(df4_dist_privacy2)
+
+ggplot(data = df4_dist_privacy2,
+       aes(x = FLAG_PRIVACY_2,
+           y = TOT_ID)) +
+  geom_bar(stat = "identity",
+           fill = "steelblue") +
+  theme_minimal()
+```
+
+Let's explore the privacy MTK method (FLAG_DIRECT_MKT):
+
+```{r Dsitribution FLAG_DIRECT_MKT Address}
+df4_dist_privacy_mkt<- privacy_clean %>%
+                          group_by(FLAG_DIRECT_MKT) %>%
+                          summarize(TOT_ID = n_distinct(ID_CLI)) %>%
+                          mutate(PERCENT = TOT_ID/sum(TOT_ID)) %>%
+                          arrange(desc(PERCENT))
+
+knitr::kable(df4_dist_privacy_mkt)
+
+ggplot(data = df4_dist_privacy_mkt,
+       aes(x = FLAG_DIRECT_MKT,
+           y = TOT_ID)) +
+  geom_bar(stat = "identity",
+           fill = "steelblue") +
+  theme_minimal()
+```
+
+## 5. Campaign Category
+
+The campaign channel (`CHANNEL_CAMP`) is not importants: let's remove it.
+
+```{r Manipulation Campaign Category}
+campaign_category_clean <- campaign_category_clean %>%
+                             select(-CHANNEL_CAMP)
+```
+
+## 6. Campaign Event
+
+Let's format dates and times:
+
+```{r Manipulation Campaign Event}
+campaign_event_clean <- campaign_event_clean %>%
+                              mutate(EVENT_DATETIME = as.POSIXct(EVENT_DATE, format="%Y-%m-%dT%H:%M:%S")) %>%
+                              mutate(EVENT_HOUR = hour(EVENT_DATETIME)) %>%
+                              mutate(EVENT_DATE = as.Date(EVENT_DATETIME))
+```
+
+### Reshaping
+
+We remap the event type values `E` (*ERROR*) and `B` [*BOUNCE*] into a level `F` [*FAILURE*]:
+
+```{r Remap TYP_EVENT Campaign Event}
+campaign_event_clean <- campaign_event_clean %>%
+                          mutate(TYP_EVENT = as.factor(if_else(TYP_EVENT == "E" | TYP_EVENT == "B",
+                                                               "F", as.character(TYP_EVENT)))) %>%
+                          left_join(campaign_category_clean,
+                                    by = "ID_CAMP")
+
+```
+
+Also, is necessary to organize the data adding to each sending event the corresponding opens/clicks/fails:
+
+```{r Sends Campaign Event}
+df_sends <- campaign_event_clean %>%
+              filter(TYP_EVENT == "S") %>%
+              select(-TYP_EVENT) %>%
+              select(ID_EVENT_S = ID_EVENT,
+                     ID_CLI,
+                     ID_CAMP,
+                     TYP_CAMP,
+                     ID_DELIVERY,
+                     SEND_DATE = EVENT_DATE) %>%
+              as.data.frame()
+```
+
+There could be multiple opens of the same communication:
+
+1. Count the open events;
+2. Consider explicitely only the first open.
+
+```{r Open Campaign Event}
+df_opens_prep <- campaign_event_clean %>%
+                    filter(TYP_EVENT == "V") %>%
+                    select(-TYP_EVENT) %>%
+                    select(ID_EVENT_O = ID_EVENT,
+                           ID_CLI,
+                           ID_CAMP,
+                           TYP_CAMP,
+                           ID_DELIVERY,
+                           OPEN_DATETIME = EVENT_DATETIME,
+                           OPEN_DATE = EVENT_DATE) %>%
+                    as.data.frame()
+
+total_opens <- df_opens_prep %>%
+  group_by(ID_CLI,
+           ID_CAMP,
+           ID_DELIVERY) %>%
+  summarize(NUM_OPENs = n_distinct(ID_EVENT_O))
+
+df_opens <- df_opens_prep %>%
+  left_join(total_opens,
+            by = c("ID_CLI", "ID_CAMP", "ID_DELIVERY")) %>%
+  group_by(ID_CLI,
+           ID_CAMP,
+           ID_DELIVERY) %>%
+  filter(OPEN_DATETIME == min(OPEN_DATETIME)) %>%
+  filter(row_number() == 1) %>%
+  ungroup() %>%
+  as.data.frame()
+```
+
+There could be multiple clicks of the same communication:
+
+1. Count the click events;
+2. Consider explicitely only the first click.
+
+```{r Clicks Campaign Event}
+df_clicks_prep <- campaign_event_clean %>%
+  filter(TYP_EVENT == "C") %>%
+  select(-TYP_EVENT) %>%
+  select(ID_EVENT_C = ID_EVENT,
+         ID_CLI,
+         ID_CAMP,
+         TYP_CAMP,
+         ID_DELIVERY,
+         CLICK_DATETIME = EVENT_DATETIME,
+         CLICK_DATE = EVENT_DATE)
+
+total_clicks <- df_clicks_prep %>%
+  group_by(ID_CLI,
+           ID_CAMP,
+           ID_DELIVERY) %>%
+  summarize(NUM_CLICKs = n_distinct(ID_EVENT_C))
+
+df_clicks <- df_clicks_prep %>%
+  left_join(total_clicks,
+            by = c("ID_CLI", "ID_CAMP", "ID_DELIVERY")) %>%
+  group_by(ID_CLI,
+           ID_CAMP,
+           ID_DELIVERY) %>%
+  filter(CLICK_DATETIME == min(CLICK_DATETIME)) %>%
+  filter(row_number() == 1) %>%
+  ungroup() %>%
+  as.data.frame()
+```
+
+```{r Fails Campaign Event}
+df_fails <- campaign_event_clean %>%
+  filter(TYP_EVENT == "F") %>%
+  select(-TYP_EVENT) %>%
+  select(ID_EVENT_F = ID_EVENT,
+         ID_CLI,
+         ID_CAMP,
+         TYP_CAMP,
+         ID_DELIVERY,
+         FAIL_DATETIME = EVENT_DATETIME,
+         FAIL_DATE = EVENT_DATE) %>%
+  group_by(ID_CLI, ID_CAMP, ID_DELIVERY) %>%
+  filter(FAIL_DATETIME == min(FAIL_DATETIME)) %>%
+  filter(row_number() == 1) %>%
+  ungroup() %>%
+  as.data.frame()
+```
+
+We combine them in one variable:
+
+```{r Combine Campaign Event}
+campaign_event_clean_final <- df_sends %>%
+  left_join(df_opens,
+            by = c("ID_CLI", "ID_CAMP", "ID_DELIVERY", "TYP_CAMP")
+  ) %>%
+  filter(is.na(OPEN_DATE) | SEND_DATE <= OPEN_DATE) %>%
+  left_join(df_clicks,
+            by = c("ID_CLI", "ID_CAMP", "ID_DELIVERY", "TYP_CAMP")
+  ) %>%
+  filter(is.na(CLICK_DATE) | OPEN_DATE <= CLICK_DATE) %>%
+  left_join(df_fails,
+            by = c("ID_CLI", "ID_CAMP", "ID_DELIVERY", "TYP_CAMP")
+  ) %>%
+  filter(is.na(FAIL_DATE) | SEND_DATE <= FAIL_DATE) %>%
+  mutate(OPENED = !is.na(ID_EVENT_O)) %>%
+  mutate(CLICKED = !is.na(ID_EVENT_C)) %>%
+  mutate(FAILED = !is.na(ID_EVENT_F)) %>%
+  mutate(DAYS_TO_OPEN = as.integer(OPEN_DATE - SEND_DATE)) %>%
+  select(ID_EVENT_S,
+         ID_CLI,
+         ID_CAMP,
+         TYP_CAMP,
+         ID_DELIVERY,
+         SEND_DATE,
+         OPENED,
+         OPEN_DATE,
+         DAYS_TO_OPEN,
+         NUM_OPENs,
+         CLICKED,
+         CLICK_DATE,
+         NUM_CLICKs,
+         FAILED)
+```
+
+### Explanatory Analysis
+
+```{r Summaries Campaign Event}
+df6_overview <- campaign_event_clean_final %>% 
+  summarize(MIN_DATE = min(SEND_DATE),
+            MAX_DATE = max(SEND_DATE),
+            TOT_EVENTs = n_distinct(ID_EVENT_S),
+            TOT_CLIs = n_distinct(ID_CLI))
+
+knitr::kable(df6_overview)
+```
+
+Below there's a general overview about the type of campaign variable (`TYP_CAMP`):
+
+```{r Distribution TYP_CAMP Campaign Event}
+df6_overviewbytyp <- campaign_event_clean_final %>%
+  group_by(TYP_CAMP) %>%
+  summarize(MIN_DATE = min(SEND_DATE),
+            MAX_DATE = max(SEND_DATE),
+            TOT_EVENTs = n_distinct(ID_EVENT_S),
+            TOT_CLIs = n_distinct(ID_CLI))
+
+knitr::kable(df6_overviewbytyp)
+
+ggplot(data = df6_overviewbytyp,
+       aes(x = TYP_CAMP,
+           y = TOT_EVENTs)) +
+  geom_bar(stat = "identity",
+           fill = "steelblue") +
+  theme_minimal()
+```
+
+Below there's a general overview about the variable `OPENED`:
+
+```{r Distribution OPENED Campaign Event}
+df6_dist_opened <- campaign_event_clean_final %>%
+  group_by(OPENED) %>%
+  summarize(TOT_EVENTs = n_distinct(ID_EVENT_S),
+            TOT_CLIs = n_distinct(ID_CLI)) %>%
+  mutate(TYP_CAMP = 'ALL') %>%
+  mutate(PERCENT_EVENTs = TOT_EVENTs/df6_overview$TOT_EVENTs,
+         PERCENT_CLIs = TOT_CLIs/df6_overview$TOT_CLIs)
+
+knitr::kable(df6_dist_opened)
+
+  ggplot(data = df6_dist_opened,
+         aes(fill = OPENED,
+             x = TYP_CAMP,
+             y = TOT_EVENTs)) +
+    geom_bar(stat = "identity",
+             position = "fill") +
+    theme_minimal()
+```
+
+Below there's a general overview about the type of campaign variable opened (`TYP_CAMP`):
+
+```{r Distribution OPENED by TYP_CAMP Campaign Event}
+df6_dist_openedbytyp <- campaign_event_clean_final %>%
+  group_by(TYP_CAMP, OPENED)  %>%
+  summarize(TOT_EVENTs = n_distinct(ID_EVENT_S),
+            TOT_CLIs = n_distinct(ID_CLI)) %>%
+  left_join(df6_overviewbytyp %>%
+              select(TYP_CAMP,
+                     ALL_TOT_EVENTs = TOT_EVENTs,
+                     ALL_TOT_CLIs = TOT_CLIs),
+            by = 'TYP_CAMP') %>%
+  mutate(PERCENT_EVENTs = TOT_EVENTs/ALL_TOT_EVENTs,
+         PERCENT_CLIs = TOT_CLIs/ALL_TOT_CLIs) %>%
+  select(TYP_CAMP,
+         OPENED,
+         TOT_EVENTs,
+         TOT_CLIs,
+         PERCENT_EVENTs,
+         PERCENT_CLIs)
+
+knitr::kable(df6_dist_openedbytyp)
+
+ggplot(data = df6_dist_openedbytyp,
+       aes(fill = OPENED,
+           x = TYP_CAMP,
+           y = TOT_EVENTs)) +
+  geom_bar(stat = "identity") +
+  theme_minimal()
+
+ggplot(data = df6_dist_openedbytyp,
+       aes(fill = OPENED,
+           x = TYP_CAMP,
+           y = TOT_EVENTs)) +
+  geom_bar(position = "fill",
+           stat = "identity") +
+  theme_minimal()
+```
+
+Below there's a general overview about the days after an email is opened (`DAYS_TO_OPEN`):
+
+```{r Distribution DAYS_TO_OPEN Campaign Event}
+df6_dist_daystoopen <- campaign_event_clean_final %>%
+  filter(OPENED) %>%
+  group_by(ID_CLI) %>%
+  summarize(AVG_DAYS_TO_OPEN = floor(mean(DAYS_TO_OPEN))) %>%
+  ungroup() %>%
+  group_by(AVG_DAYS_TO_OPEN) %>%
+  summarize(TOT_CLIs = n_distinct(ID_CLI))
+
+knitr::kable(df6_dist_daystoopen)
+
+ggplot(data = df6_dist_daystoopen %>%
+         filter(AVG_DAYS_TO_OPEN < 14),
+       aes(x = AVG_DAYS_TO_OPEN,
+           y = TOT_CLIs)) +
+  geom_bar(stat = "identity",
+           fill = "steelblue") +
+  theme_minimal()
+```
+
+Below there's a general overview about the days after an email is opened (`DAYS_TO_OPEN`):
+
+```{r Distribution AVG_DAYS_TO_OPEN Campaign Event}
+df6_dist_daystoopen_vs_cumulate <- df6_dist_daystoopen %>%
+  arrange(AVG_DAYS_TO_OPEN) %>%
+  mutate(PERCENT_COVERED = cumsum(TOT_CLIs)/sum(TOT_CLIs))
+
+ggplot(data = df6_dist_daystoopen_vs_cumulate %>%
+         filter(AVG_DAYS_TO_OPEN < 14),
+       aes(x = AVG_DAYS_TO_OPEN,
+           y = PERCENT_COVERED)) +
+  geom_line() +
+  geom_point() +
+  scale_x_continuous(breaks = seq(0,14,2), minor_breaks = 0:14) +
+  theme_minimal()
+```
+
+Below there's a general overview about the days after an email is clicked:
+
+```{r Distribution CLICKED by TYP_CAMP Campaign Event}
+df6_dist_clickedbytyp <- campaign_event_clean_final %>%
+  group_by(TYP_CAMP, CLICKED)  %>%
+  summarize(TOT_EVENTs = n_distinct(ID_EVENT_S),
+            TOT_CLIs = n_distinct(ID_CLI)) %>%
+  left_join(df6_overviewbytyp %>%
+              select(TYP_CAMP,
+                     ALL_TOT_EVENTs = TOT_EVENTs,
+                     ALL_TOT_CLIs = TOT_CLIs)
+            , by='TYP_CAMP') %>%
+  mutate(PERCENT_EVENTs = TOT_EVENTs/ALL_TOT_EVENTs,
+         PERCENT_CLIs = TOT_CLIs/ALL_TOT_CLIs) %>%
+  select(TYP_CAMP,
+         CLICKED,
+         TOT_EVENTs,
+         TOT_CLIs,
+         PERCENT_EVENTs,
+         PERCENT_CLIs)
+
+knitr::kable(df6_dist_clickedbytyp)
+
+ggplot(data = df6_dist_clickedbytyp,
+       aes(fill = CLICKED, x = TYP_CAMP, y = TOT_EVENTs)) +
+  geom_bar(stat = "identity") +
+  theme_minimal()
+
+ggplot(data = df6_dist_clickedbytyp,
+       aes(fill = CLICKED,
+             x = TYP_CAMP,
+             y = TOT_EVENTs)) +
+  geom_bar(position = "fill",
+           stat = "identity") +
+  theme_minimal()
+
+```
+
+Below there's a general overview about the days after an email is failed:
+
+```{r Distribution Campaign Event}
+df6_dist_failedbytyp <- campaign_event_clean_final %>%
+  group_by(TYP_CAMP, FAILED)  %>%
+  summarize(TOT_EVENTs = n_distinct(ID_EVENT_S)
+            , TOT_CLIs = n_distinct(ID_CLI)) %>%
+  left_join(df6_overviewbytyp %>%
+              select(TYP_CAMP,
+                     ALL_TOT_EVENTs = TOT_EVENTs,
+                     ALL_TOT_CLIs = TOT_CLIs),
+            by='TYP_CAMP') %>%
+  mutate(PERCENT_EVENTs = TOT_EVENTs/ALL_TOT_EVENTs,
+         PERCENT_CLIs = TOT_CLIs/ALL_TOT_CLIs) %>%
+  select(TYP_CAMP,
+         FAILED,
+         TOT_EVENTs,
+         TOT_CLIs,
+         PERCENT_EVENTs,
+         PERCENT_CLIs)
+
+knitr::kable(df6_dist_failedbytyp)
+
+ggplot(data = df6_dist_failedbytyp,
+       aes(fill = FAILED,
+           x = TYP_CAMP,
+           y = TOT_EVENTs)) +
+  geom_bar(stat = "identity") +
+  theme_minimal()
+
+ggplot(data = df6_dist_failedbytyp,
+       aes(fill = FAILED,
+           x = TYP_CAMP,
+           y = TOT_EVENTs)) +
+  geom_bar(position = "fill",
+           stat = "identity") +
+  theme_minimal()
+```
+
+Below there's a general overview about the number of clicks opening an email:
+
+```{r Distribution NUM_OPENs Campaign Event}
+df6_dist_numopens<- campaign_event_clean_final %>%
+  group_by(NUM_OPENs) %>%
+  summarize(TOT_ID = n_distinct(ID_EVENT_S)) %>%
+  mutate(PERCENT = TOT_ID/sum(TOT_ID)) %>%
+  arrange(desc(PERCENT))
+
+df6_dist_numopens
+
+plot_df6_dist_numopens <- (
+  ggplot(data = df6_dist_numopens
+         , aes(x = NUM_OPENs, y = TOT_ID)) +
+    geom_bar(stat = "identity"
+             , fill = "steelblue") +
+    xlim(0, 15)+
+    theme_minimal()
+)
+
+plot_df6_dist_numopens
+
+```
+
+Below there's a general overview about the number of clicks in the email:
+
+```{r Distribution NUM_CLICKs Campaign Event}
+df6_dist_numclicks <- campaign_event_clean_final %>%
+  group_by(NUM_CLICKs) %>%
+  summarize(TOT_ID = n_distinct(ID_EVENT_S)) %>%
+  mutate(PERCENT = TOT_ID/sum(TOT_ID)) %>%
+  arrange(desc(PERCENT))
+
+
+knitr::kable(df6_dist_numclicks)
+
+ggplot(data = df6_dist_numclicks,
+       aes(x = NUM_CLICKs, y = TOT_ID)) +
+  geom_bar(stat = "identity",
+           fill = "steelblue") +
+  xlim(0, 15) +
+  theme_minimal()
+```
+
+## 7. Purchase and Refund
+
+Let's format dates and times and factorize `DIREZIONE`:
+
+```{r Manipulation Tickets}
+tickets_clean <- tickets_clean %>%
+                    mutate(TIC_DATETIME = as.POSIXct(DATETIME, format = "%Y-%m-%dT%H%M%S")) %>%
+                    mutate(TIC_HOUR = hour(TIC_DATETIME)) %>%
+                    mutate(TIC_DATE = as.Date(TIC_DATETIME)) %>%
+                    select(-DATETIME) %>%
+                    mutate(DIREZIONE = as.factor(DIREZIONE)) %>% #-- Factorization
+                    mutate(COD_REPARTO = as.factor(COD_REPARTO))
+```
+
+### Reshaping
+
+```{r Reshaping Tickets}
+tickets_clean <- tickets_clean %>%
+                    #-- adding day characterization
+                    mutate(TIC_DATE_WEEKDAY = wday(TIC_DATE)) %>%
+                    mutate(TIC_DATE_HOLIDAY = isHoliday("Italy", TIC_DATE)) %>%
+                    mutate(TIC_DATE_TYP = case_when(
+                      (TIC_DATE_WEEKDAY %in% c(6,7)) ~ "weekend",
+                      (TIC_DATE_HOLIDAY == TRUE) ~ "holiday",
+                      (TIC_DATE_WEEKDAY < 7) ~ "weekday",
+                      TRUE ~ "other"))
+```
+
+### Explanatory Analysis
+
+Let's take a general overiew about the `TIC_DATE` variable:
+
+```{r Distribution TIC_DATE Tickets}
+df7_overview <- tickets_clean %>% 
+                  summarize(MIN_DATE = min(TIC_DATE),
+                            MAX_DATE = max(TIC_DATE),
+                            TOT_TICs = n_distinct(ID_SCONTRINO),
+                            TOT_CLIs = n_distinct(ID_CLI))
+
+knitr::kable(df7_overview)
+```
+
+Let's take a general overiew about the `DIREZIONE` variable:
+
+```{r Distribution DIREZIONE Tickets}
+df7_dist_direction <- tickets_clean %>%
+  group_by(DIREZIONE) %>%
+  summarize(TOT_TICs = n_distinct(ID_SCONTRINO),
+            TOT_CLIs = n_distinct(ID_CLI)) %>%
+  mutate(PERCENT_TICs = TOT_TICs/df7_overview$TOT_TICs,
+         PERCENT_CLIs = TOT_CLIs/df7_overview$TOT_CLIs)
+
+knitr::kable(df7_dist_direction)
+```
+
+Let's take a general overiew about the `TIC_HOURS` variable:
+
+```{r Distribution TIC_HOURS Tickets}
+df7_dist_hour <- tickets_clean %>%
+  group_by(TIC_HOUR, DIREZIONE) %>%
+  summarize(TOT_TICs = n_distinct(ID_SCONTRINO),
+            TOT_CLIs = n_distinct(ID_CLI)) %>%
+  left_join(df7_dist_direction %>%
+              select(DIREZIONE,
+                     ALL_TOT_TICs = TOT_TICs,
+                     ALL_TOT_CLIs = TOT_CLIs),
+            by = 'DIREZIONE') %>%
+  mutate(PERCENT_TICs = TOT_TICs/ALL_TOT_TICs,
+         PERCENT_CLIs = TOT_CLIs/ALL_TOT_CLIs) %>%
+  select(-ALL_TOT_TICs,
+         -ALL_TOT_CLIs)
+
+knitr::kable(df7_dist_hour)
+
+#-- TIC_HOURS
+ggplot(data = df7_dist_hour,
+       aes(fill = DIREZIONE,
+           x = TIC_HOUR,
+           y = TOT_TICs)) +
+  geom_bar(stat = "identity") +
+  theme_minimal()
+
+#-- TIC_HOURS Percent
+ggplot(data = df7_dist_hour,
+       aes(fill = DIREZIONE,
+           x = TIC_HOUR,
+           y = TOT_TICs)) +
+  geom_bar(stat = "identity",
+           position = "fill" ) +
+  theme_minimal()
+```
+
+Let's take a general overiew about the `COD_REPARTO` variable:
+
+```{r Distribution COD_REPARTO Tickets}
+df7_dist_dep <- tickets_clean %>%
+  group_by(COD_REPARTO, DIREZIONE) %>%
+  summarize(TOT_TICs = n_distinct(ID_SCONTRINO),
+            TOT_CLIs = n_distinct(ID_CLI)) %>%
+  left_join(df7_dist_direction %>%
+              select(DIREZIONE,
+                     ALL_TOT_TICs = TOT_TICs,
+                     ALL_TOT_CLIs = TOT_CLIs),
+            by = 'DIREZIONE') %>%
+  mutate(PERCENT_TICs = TOT_TICs/ALL_TOT_TICs,
+         PERCENT_CLIs = TOT_CLIs/ALL_TOT_CLIs) %>%
+    select(-ALL_TOT_TICs, -ALL_TOT_CLIs)
+    
+knitr::kable(df7_dist_dep)
+
+#-- COD_REPARTO
+ggplot(data = df7_dist_dep,
+       aes(fill = DIREZIONE,
+           x = COD_REPARTO,
+           y = TOT_TICs)) +
+  geom_bar(stat = "identity") +
+  theme_minimal()
+
+#-- COD_REPARTO Percent
+ggplot(data = df7_dist_dep,
+       aes(fill = DIREZIONE,
+           x = COD_REPARTO,
+           y = TOT_TICs)) +
+  geom_bar(stat = "identity",
+           position = "fill" ) +
+  theme_minimal()
+```
+
+Let's take a general overiew about the `TIC_DATE_TYP` variable:
+
+```{r Distribution TIC_DATE_TYP Tickets}
+df7_dist_datetyp <- tickets_clean %>%
+  group_by(TIC_DATE_TYP, DIREZIONE) %>%
+  summarize(TOT_TICs = n_distinct(ID_SCONTRINO),
+            TOT_CLIs = n_distinct(ID_CLI)) %>%
+  left_join(df7_dist_direction %>%
+              select(DIREZIONE,
+                     ALL_TOT_TICs = TOT_TICs,
+                     ALL_TOT_CLIs = TOT_CLIs),
+            by = 'DIREZIONE') %>%
+  mutate(PERCENT_TICs = TOT_TICs/ALL_TOT_TICs,
+         PERCENT_CLIs = TOT_CLIs/ALL_TOT_CLIs) %>%
+  select(-ALL_TOT_TICs, -ALL_TOT_CLIs)
+
+knitr::kable(df7_dist_datetyp)
+
+#-- TIC_DATE_TYP
+ggplot(data = df7_dist_datetyp,
+       aes(fill = DIREZIONE,
+           x = TIC_DATE_TYP,
+           y = TOT_TICs)) +
+ geom_bar(stat = "identity") +
+ theme_minimal()
+
+#-- TIC_DATE_TYP Percent
+ggplot(data = df7_dist_datetyp,
+       aes(fill = DIREZIONE,
+           x = TIC_DATE_TYP,
+           y = TOT_TICs)) +
+  geom_bar(stat = "identity",
+           position = "fill" ) +
+  theme_minimal()
+```
+
+Let's take a general overiew about the `IMPORTO_LORDO` variable:
+
+```{r Distribution IMPORTO_LORDO Tickets}
+df7_dist_importosconto <- tickets_clean %>%
+  group_by(ID_SCONTRINO, DIREZIONE) %>%
+  summarize(IMPORTO_LORDO = sum(IMPORTO_LORDO),
+            SCONTO = sum(SCONTO)) %>%
+  ungroup() %>%
+  as.data.frame()
+
+df7_dist_avgimportosconto <- df7_dist_importosconto %>%
+  group_by(DIREZIONE) %>%
+  summarize(AVG_IMPORTO_LORDO = mean(IMPORTO_LORDO),
+            AVG_SCONTO = mean(SCONTO))
+
+knitr::kable(df7_dist_avgimportosconto)
+
+#-- IMPORTO_LORDO
+ggplot(data = df7_dist_importosconto %>%
+         filter((IMPORTO_LORDO > -1000) & (IMPORTO_LORDO < 1000)),
+       aes(color = DIREZIONE,
+           x = IMPORTO_LORDO)) +
+  geom_histogram(binwidth = 10,
+                 fill = "white",
+                 alpha = 0.5) +
+  theme_minimal()
+
+#-- IMPORTO_LORDO Percent
+ggplot(data = df7_dist_importosconto %>%
+         filter((SCONTO > -250) & (IMPORTO_LORDO < 250)),
+       aes(color = DIREZIONE, x = SCONTO)) +
+  geom_histogram(binwidth = 10,
+                 fill = "white",
+                 alpha = 0.5) +
+  theme_minimal()
+```
+
+```{r Distribution Average IMPORTO_LORDO Tickets}
+df7_dist_importosconto_cod_rep <- tickets_clean %>%
+  group_by(COD_REPARTO, DIREZIONE) %>%
+  summarize(IMPORTO_LORDO = sum(IMPORTO_LORDO),
+            SCONTO = sum(SCONTO)) %>%
+  ungroup() %>%
+  as.data.frame()
+
+knitr::kable(df7_dist_importosconto_cod_rep)
+
+#-- IMPORTO_LORDO
+ggplot(data = df7_dist_importosconto_cod_rep,
+       aes(fill = DIREZIONE,
+           x = COD_REPARTO,
+           y = IMPORTO_LORDO)) +
+ geom_bar(stat = "identity") +
+ theme_minimal()
+
+#-- SCONTO
+ggplot(data = df7_dist_importosconto_cod_rep,
+       aes(fill = DIREZIONE,
+           x = COD_REPARTO,
+           y = SCONTO)) +
+ geom_bar(stat = "identity") +
+ theme_minimal()
+```
+
+```{r Distribution ID_ARTICOLO}
+tickets_clean$ID_ARTICOLO <- as.factor(tickets_clean$ID_ARTICOLO)
+
+tickets_clean
+
+df7_dist_id_articolo <- tickets_clean %>%
+  filter(DIREZIONE == 1) %>%
+  group_by(ID_ARTICOLO) %>%
+  summarize(NUM_VENDITE = n_distinct(ID_SCONTRINO)) %>%
+  ungroup() %>%
+  as.data.frame() %>%
+  arrange(desc(NUM_VENDITE))
+
+knitr::kable(head(df7_dist_id_articolo))
+```
+
+```{r Distribution Average ID_CLIENTE Tickets}
+df7_dist_importosconto_id_cli <- tickets_clean %>%
+  filter(DIREZIONE == 1) %>%
+  group_by(ID_CLI) %>%
+  summarize(IMPORTO_LORDO = sum(IMPORTO_LORDO),
+            SCONTO = sum(SCONTO)) %>%
+  ungroup() %>%
+  as.data.frame() %>%
+  arrange(desc(IMPORTO_LORDO))
+
+knitr::kable(head(df7_dist_importosconto_id_cli))
+```
+
+```{r}
+df7_dist_tot_purch <- tickets_clean %>%
+                        filter(DIREZIONE == 1) %>%
+                        group_by(ID_CLI) %>%
+                        summarise(TOT_PURCHASE = n_distinct(ID_SCONTRINO)) %>%
+                        arrange(desc(TOT_PURCHASE))
+
+knitr::kable(head(df7_dist_tot_purch))
+```
+
+```{r}
+df7_dist_recency <- tickets_clean %>%
+  filter(DIREZIONE == 1) %>%
+  group_by(ID_CLI) %>%
+  summarise(LAST_PURCHASE_DATE = max(TIC_DATE))
+
+df7_dist_recency$RECENCY <- difftime(as.Date("30/04/2019", format = "%d/%m/%Y"),
+                                     df7_dist_recency$LAST_PURCHASE_DATE, units = "days")
+
+knitr::kable(head(df7_dist_recency))
+```
+
+# RFM Model
+
+```{r}
+rfm_study_period <- tickets_clean %>%
+  filter(TIC_DATE > as.Date("01/01/2019", format = "%d/%m/%Y")) #-- Active 
+
+knitr::kable(head(rfm_study_period))
+```
+
+```{r}
+rfm_recency <- rfm_study_period %>%
+  filter(DIREZIONE == 1) %>%
+  group_by(ID_CLI) %>%
+  summarise(LAST_PURCHASE_DATE = max(TIC_DATE))
+
+rfm_recency$RECENCY <- difftime(as.Date("30/04/2019", format = "%d/%m/%Y"),          #-- Recency
+                                     rfm_recency$LAST_PURCHASE_DATE, units = "days")
+
+knitr::kable(head(rfm_recency))
+```
+
+```{r}
+rfm_frequency <- rfm_study_period %>%
+                    filter(DIREZIONE == 1) %>%
+                    group_by(ID_CLI) %>%
+                    summarise(TOT_PURCHASE = n_distinct(ID_SCONTRINO)) %>%
+                    arrange(desc(TOT_PURCHASE))
+
+knitr::kable(head(rfm_frequency))
+```
+
+```{r}
+rfm_monetary <- rfm_study_period %>%
+  filter(DIREZIONE == 1) %>%
+  group_by(ID_CLI) %>%
+  summarize(IMPORTO_LORDO = sum(IMPORTO_LORDO),
+            SCONTO = sum(SCONTO),
+            SPESA = IMPORTO_LORDO - SCONTO) %>%
+  ungroup() %>%
+  as.data.frame() %>%
+  arrange(desc(IMPORTO_LORDO))
+
+knitr::kable(head(rfm_monetary))
+```
+
+```{r}
+# 0-2 -> "low"
+# 3-4 -> "medium"
+# 5+ -> "high"
+
+rfm_frequency <- within(rfm_frequency,
+                   FREQ_CLASS <- cut(rfm_frequency$TOT_PURCHASE,
+                                              breaks = c(0, 2, 5, 101),
+                                              include.lowest=T,
+                                     right = F,
+                                     labels = c("low", "medium", "high")))
+table(rfm_frequency$FREQ_CLASS)
+```
+
+```{r}
+rfm_recency <- within(rfm_recency,
+                   REC_CLASS <- cut(as.numeric(rfm_recency$RECENCY),
+                                              breaks = quantile(rfm_recency$RECENCY, probs=c(0, .25, .75, 1)),
+                                              include.lowest=T,
+                                     labels = c("low", "medium", "high")),
+                   )
+
+table(rfm_recency$REC_CLASS)
+```
+
+```{r}
+rfm_monetary <- within(rfm_monetary,
+                   MON_CLASS <- cut(rfm_monetary$SPESA,
+                                              breaks = quantile(rfm_monetary$SPESA, probs=c(0, .25, .75, 1)),
+                                              include.lowest=T,
+                                     labels = c("low", "medium", "high")),
+                   )
+
+table(rfm_monetary$MON_CLASS)
+```
+
+
+```{r}
+rfm <- merge(rfm_frequency, rfm_monetary, by = "ID_CLI")
+rfm <- merge(rfm, rfm_recency, by = "ID_CLI")
+
+rfm[,c("ID_CLI","REC_CLASS","FREQ_CLASS","MON_CLASS")]
+
+save(rfm,rfm_monetary,rfm_recency,rfm_frequency, file = "rfm.RData")
+```
+
+```{r}
+rfm$RF <- NA
+
+for(i in c(1:nrow(rfm))){
+  if(rfm$REC_CLASS[i] == "low" && rfm$FREQ_CLASS[i] == "low") rfm$RF[i] <- "One-Timer"
+  if(rfm$REC_CLASS[i] == "medium" && rfm$FREQ_CLASS[i] == "low") rfm$RF[i] <- "One-Timer"
+  if(rfm$REC_CLASS[i] == "high" && rfm$FREQ_CLASS[i] == "low") rfm$RF[i] <- "Leaving"
+  if(rfm$REC_CLASS[i] == "low" && rfm$FREQ_CLASS[i] == "medium") rfm$RF[i] <- "Engaged"
+  if(rfm$REC_CLASS[i] == "medium" && rfm$FREQ_CLASS[i] == "medium") rfm$RF[i] <- "Engaged"
+  if(rfm$REC_CLASS[i] == "high" && rfm$FREQ_CLASS[i] == "medium") rfm$RF[i] <- "Leaving"
+  if(rfm$REC_CLASS[i] == "low" && rfm$FREQ_CLASS[i] == "high") rfm$RF[i] <- "Top"
+  if(rfm$REC_CLASS[i] == "medium" && rfm$FREQ_CLASS[i] == "high") rfm$RF[i] <- "Top"
+  if(rfm$REC_CLASS[i] == "high" && rfm$FREQ_CLASS[i] == "high") rfm$RF[i] <- "Leaving Top"
+}
+
+table(rfm$RF)
+```
