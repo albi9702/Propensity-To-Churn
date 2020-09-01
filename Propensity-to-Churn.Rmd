@@ -23,6 +23,13 @@ library(ggplot2)
 library(forcats)
 library(lubridate)
 library(RQuantLib)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(MLmetrics)
+library(randomForest)
+library(Rcmdr)
+library(glmnet)
 
 set.seed(123456) #-- Set seed for same results
 
@@ -616,11 +623,11 @@ ggplot(data = df4_dist_privacy1,
 Let's explore the second privacy method (FLAG_PRIVACY_2):
 
 ```{r Dsitribution FLAG_PRIVACY_2 Address}
-df4_dist_privacy2<- privacy_clean                            %>%
-                      group_by(FLAG_PRIVACY_2)               %>% #-- Grouped By FLAG_PRIVACY_1
-                      summarize(TOT_ID = n_distinct(ID_CLI)) %>% #-- Number of Total Client
-                      mutate(PERCENT = TOT_ID/sum(TOT_ID))   %>% #-- Percent
-                      arrange(desc(PERCENT))                     #-- Sorted by PERCENT 
+df4_dist_privacy2 <- privacy_clean                            %>%
+                      group_by(FLAG_PRIVACY_2)                %>% #-- Grouped By FLAG_PRIVACY_1
+                      summarize(TOT_ID = n_distinct(ID_CLI))  %>% #-- Number of Total Client
+                      mutate(PERCENT = TOT_ID/sum(TOT_ID))    %>% #-- Percent
+                      arrange(desc(PERCENT))                      #-- Sorted by PERCENT 
 
 knitr::kable(df4_dist_privacy2)
 
@@ -635,11 +642,11 @@ ggplot(data = df4_dist_privacy2,
 Let's explore the privacy MTK method (FLAG_DIRECT_MKT):
 
 ```{r Dsitribution FLAG_DIRECT_MKT Address}
-df4_dist_privacy_mkt<- privacy_clean                             %>%
-                          group_by(FLAG_DIRECT_MKT)              %>% #-- Grouped By FLAG_PRIVACY_1
-                          summarize(TOT_ID = n_distinct(ID_CLI)) %>% #-- Number of Total Client
-                          mutate(PERCENT = TOT_ID/sum(TOT_ID))   %>% #-- Percent
-                          arrange(desc(PERCENT))                     #-- Sorted by PERCENT 
+df4_dist_privacy_mkt <- privacy_clean                             %>%
+                          group_by(FLAG_DIRECT_MKT)               %>% #-- Grouped By FLAG_PRIVACY_1
+                          summarize(TOT_ID = n_distinct(ID_CLI))  %>% #-- Number of Total Client
+                          mutate(PERCENT = TOT_ID/sum(TOT_ID))    %>% #-- Percent
+                          arrange(desc(PERCENT))                      #-- Sorted by PERCENT 
 
 knitr::kable(df4_dist_privacy_mkt)
 
@@ -705,7 +712,12 @@ There could be multiple opens of the same communication:
 1. Count the open events;
 2. Consider explicitely only the first open.
 
-```{r Open Campaign Event}
+```{r, include = FALSE}
+load("opens.RData")
+```
+
+```{r Open Campaign Event, eval = FALSE}
+#-- ci mette troppo
 df_opens_prep <- campaign_event_clean              %>%
                     filter(TYP_EVENT == "V")       %>% #-- Filter Sends
                     select(-TYP_EVENT)             %>%
@@ -724,18 +736,18 @@ total_opens <- df_opens_prep                                  %>%
                            ID_DELIVERY)                       %>% #-- Grouped By Client, Campaign & Delivery
                   summarize(NUM_OPENs = n_distinct(ID_EVENT_O))   #-- Number of Total Mail Opened
                 
-                df_opens <- df_opens_prep                     %>%
-                  left_join(total_opens,
-                            by = c("ID_CLI",
-                                   "ID_CAMP",
-                                   "ID_DELIVERY"))            %>% #-- Left join with total_opens
-                  group_by(ID_CLI,
-                           ID_CAMP,
-                           ID_DELIVERY)                       %>% #-- Grouped By Client, Campaign & Delivery
-                  filter(OPEN_DATETIME == min(OPEN_DATETIME)) %>% #-- Filter By Min Mail Opened
-                  filter(row_number() == 1)                   %>%
-                  ungroup()                                   %>%
-                  as.data.frame()
+df_opens <- df_opens_prep                                 %>%
+              left_join(total_opens,
+                        by = c("ID_CLI",
+                               "ID_CAMP",
+                               "ID_DELIVERY"))            %>% #-- Left join with total_opens
+              group_by(ID_CLI,
+                       ID_CAMP,
+                       ID_DELIVERY)                       %>% #-- Grouped By Client, Campaign & Delivery
+              filter(OPEN_DATETIME == min(OPEN_DATETIME)) %>% #-- Filter By Min Mail Opened
+              filter(row_number() == 1)                   %>%
+              ungroup()                                   %>%
+              as.data.frame()
 ```
 
 There could be multiple clicks of the same communication:
@@ -743,7 +755,12 @@ There could be multiple clicks of the same communication:
 1. Count the click events;
 2. Consider explicitely only the first click.
 
-```{r Clicks Campaign Event}
+```{r, include = FALSE}
+load("clicks.RData")
+```
+
+
+```{r Clicks Campaign Event, eval = FALSE}
 df_clicks_prep <- campaign_event_clean                              %>%
                       filter(TYP_EVENT == "C")                      %>% #-- Filter By Clicks
                       select(-TYP_EVENT)                            %>%
@@ -776,7 +793,7 @@ df_clicks <- df_clicks_prep                                   %>%
 ```
 
 ```{r Fails Campaign Event}
-df_fails <- campaign_event_clean              %>%
+df_fails <- campaign_event_clean                          %>%
               filter(TYP_EVENT == "F")                    %>% #-- Filter By Fail
               select(-TYP_EVENT)                          %>%
               select(ID_EVENT_F = ID_EVENT,
@@ -1099,12 +1116,12 @@ Let's format dates and times and factorize `DIREZIONE`:
 ```{r Manipulation Tickets}
 tickets_clean <- tickets_clean %>%
                     mutate(TIC_DATETIME = as.POSIXct(DATETIME,
-                                                     format = "%Y-%m-%dT%H%M%S")) %>%
-                    mutate(TIC_HOUR = hour(TIC_DATETIME)) %>%
-                    mutate(TIC_DATE = as.Date(TIC_DATETIME)) %>%
-                    select(-DATETIME) %>%
-                    mutate(DIREZIONE = as.factor(DIREZIONE)) %>% #-- Factorization
-                    mutate(COD_REPARTO = as.factor(COD_REPARTO))
+                                                     format = "%Y-%m-%dT%H%M%S")) %>% #-- Date Time
+                    mutate(TIC_HOUR = hour(TIC_DATETIME))                         %>% #-- In Hours
+                    mutate(TIC_DATE = as.Date(TIC_DATETIME))                      %>% #-- In Date
+                    select(-DATETIME)                                             %>% #-- Removed DATETIME
+                    mutate(DIREZIONE = as.factor(DIREZIONE))                      %>% #-- Factorization
+                    mutate(COD_REPARTO = as.factor(COD_REPARTO))                      #-- Factorization
 ```
 
 ### Reshaping
@@ -1112,8 +1129,8 @@ tickets_clean <- tickets_clean %>%
 ```{r Reshaping Tickets}
 tickets_clean <- tickets_clean %>%
                     #-- adding day characterization
-                    mutate(TIC_DATE_WEEKDAY = wday(TIC_DATE)) %>%
-                    mutate(TIC_DATE_HOLIDAY = isHoliday("Italy", TIC_DATE)) %>%
+                    mutate(TIC_DATE_WEEKDAY = wday(TIC_DATE))               %>% #-- WeekDay
+                    mutate(TIC_DATE_HOLIDAY = isHoliday("Italy", TIC_DATE)) %>% #-- Type of Day
                     mutate(TIC_DATE_TYP = case_when(
                       (TIC_DATE_WEEKDAY %in% c(6,7)) ~ "weekend",
                       (TIC_DATE_HOLIDAY == TRUE) ~ "holiday",
@@ -1127,10 +1144,10 @@ Let's take a general overiew about the `TIC_DATE` variable:
 
 ```{r Distribution TIC_DATE Tickets}
 df7_overview <- tickets_clean %>% 
-                  summarize(MIN_DATE = min(TIC_DATE),
-                            MAX_DATE = max(TIC_DATE),
-                            TOT_TICs = n_distinct(ID_SCONTRINO),
-                            TOT_CLIs = n_distinct(ID_CLI))
+                  summarize(MIN_DATE = min(TIC_DATE),            #-- Min Date
+                            MAX_DATE = max(TIC_DATE),            #-- Max Date
+                            TOT_TICs = n_distinct(ID_SCONTRINO), #-- Number of Total Tickets
+                            TOT_CLIs = n_distinct(ID_CLI))       #-- Number of Total Clients
 
 knitr::kable(df7_overview)
 ```
@@ -1139,11 +1156,11 @@ Let's take a general overiew about the `DIREZIONE` variable:
 
 ```{r Distribution DIREZIONE Tickets}
 df7_dist_direction <- tickets_clean %>%
-  group_by(DIREZIONE) %>%
-  summarize(TOT_TICs = n_distinct(ID_SCONTRINO),
-            TOT_CLIs = n_distinct(ID_CLI)) %>%
-  mutate(PERCENT_TICs = TOT_TICs/df7_overview$TOT_TICs,
-         PERCENT_CLIs = TOT_CLIs/df7_overview$TOT_CLIs)
+                        group_by(DIREZIONE)                            %>%    #-- Group By Purchases
+                        summarize(TOT_TICs = n_distinct(ID_SCONTRINO),
+                                  TOT_CLIs = n_distinct(ID_CLI))       %>%    #-- Number of Total Clients & Tickets
+                        mutate(PERCENT_TICs = TOT_TICs/df7_overview$TOT_TICs, #-- Percentual
+                               PERCENT_CLIs = TOT_CLIs/df7_overview$TOT_CLIs)
 
 knitr::kable(df7_dist_direction)
 ```
@@ -1152,18 +1169,18 @@ Let's take a general overiew about the `TIC_HOURS` variable:
 
 ```{r Distribution TIC_HOURS Tickets}
 df7_dist_hour <- tickets_clean %>%
-  group_by(TIC_HOUR, DIREZIONE) %>%
-  summarize(TOT_TICs = n_distinct(ID_SCONTRINO),
-            TOT_CLIs = n_distinct(ID_CLI)) %>%
-  left_join(df7_dist_direction %>%
-              select(DIREZIONE,
-                     ALL_TOT_TICs = TOT_TICs,
-                     ALL_TOT_CLIs = TOT_CLIs),
-            by = 'DIREZIONE') %>%
-  mutate(PERCENT_TICs = TOT_TICs/ALL_TOT_TICs,
-         PERCENT_CLIs = TOT_CLIs/ALL_TOT_CLIs) %>%
-  select(-ALL_TOT_TICs,
-         -ALL_TOT_CLIs)
+                    group_by(TIC_HOUR, DIREZIONE)                  %>% #-- Grouped By Hours & Purchases
+                    summarize(TOT_TICs = n_distinct(ID_SCONTRINO),
+                              TOT_CLIs = n_distinct(ID_CLI))       %>% #-- Number of Total Clients & Tickets
+                    left_join(df7_dist_direction                   %>% #-- Left Join with df7_dist_direction
+                                select(DIREZIONE,
+                                       ALL_TOT_TICs = TOT_TICs,
+                                       ALL_TOT_CLIs = TOT_CLIs),
+                              by = 'DIREZIONE')                    %>%
+                    mutate(PERCENT_TICs = TOT_TICs/ALL_TOT_TICs,
+                           PERCENT_CLIs = TOT_CLIs/ALL_TOT_CLIs)   %>% #-- #-- Percentual
+                    select(-ALL_TOT_TICs,
+                           -ALL_TOT_CLIs)
 
 knitr::kable(df7_dist_hour)
 
@@ -1171,35 +1188,35 @@ knitr::kable(df7_dist_hour)
 ggplot(data = df7_dist_hour,
        aes(fill = DIREZIONE,
            x = TIC_HOUR,
-           y = TOT_TICs)) +
-  geom_bar(stat = "identity") +
-  theme_minimal()
+           y = TOT_TICs)) +     #-- Data to Plot
+  geom_bar(stat = "identity") + #-- Bar Plot
+  theme_minimal()               #-- ggplot Theme
 
 #-- TIC_HOURS Percent
 ggplot(data = df7_dist_hour,
        aes(fill = DIREZIONE,
            x = TIC_HOUR,
-           y = TOT_TICs)) +
+           y = TOT_TICs)) +      #-- Data to Plot
   geom_bar(stat = "identity",
-           position = "fill" ) +
-  theme_minimal()
+           position = "fill" ) + #-- Bar Plot
+  theme_minimal()                #-- ggplot Theme
 ```
 
 Let's take a general overiew about the `COD_REPARTO` variable:
 
 ```{r Distribution COD_REPARTO Tickets}
-df7_dist_dep <- tickets_clean %>%
-  group_by(COD_REPARTO, DIREZIONE) %>%
-  summarize(TOT_TICs = n_distinct(ID_SCONTRINO),
-            TOT_CLIs = n_distinct(ID_CLI)) %>%
-  left_join(df7_dist_direction %>%
-              select(DIREZIONE,
-                     ALL_TOT_TICs = TOT_TICs,
-                     ALL_TOT_CLIs = TOT_CLIs),
-            by = 'DIREZIONE') %>%
-  mutate(PERCENT_TICs = TOT_TICs/ALL_TOT_TICs,
-         PERCENT_CLIs = TOT_CLIs/ALL_TOT_CLIs) %>%
-    select(-ALL_TOT_TICs, -ALL_TOT_CLIs)
+df7_dist_dep <- tickets_clean                                  %>%
+                  group_by(COD_REPARTO, DIREZIONE)             %>% #-- Grouped By COD_REPARTO & Purchases
+                  summarize(TOT_TICs = n_distinct(ID_SCONTRINO),
+                            TOT_CLIs = n_distinct(ID_CLI))     %>% #-- Number of Total Clients & Tickets
+                  left_join(df7_dist_direction                 %>%
+                              select(DIREZIONE,
+                                     ALL_TOT_TICs = TOT_TICs,
+                                     ALL_TOT_CLIs = TOT_CLIs),
+                            by = 'DIREZIONE')                  %>% #-- Left Join with df7_dist_direction
+                  mutate(PERCENT_TICs = TOT_TICs/ALL_TOT_TICs,
+                         PERCENT_CLIs = TOT_CLIs/ALL_TOT_CLIs) %>% #-- Percent
+                    select(-ALL_TOT_TICs, -ALL_TOT_CLIs)
     
 knitr::kable(df7_dist_dep)
 
@@ -1207,35 +1224,35 @@ knitr::kable(df7_dist_dep)
 ggplot(data = df7_dist_dep,
        aes(fill = DIREZIONE,
            x = COD_REPARTO,
-           y = TOT_TICs)) +
-  geom_bar(stat = "identity") +
-  theme_minimal()
+           y = TOT_TICs)) +     #-- Data to Plot
+  geom_bar(stat = "identity") + #-- Bar Plot
+  theme_minimal()               #-- ggplot Theme
 
 #-- COD_REPARTO Percent
 ggplot(data = df7_dist_dep,
        aes(fill = DIREZIONE,
            x = COD_REPARTO,
-           y = TOT_TICs)) +
+           y = TOT_TICs)) +      #-- Data to Plot
   geom_bar(stat = "identity",
-           position = "fill" ) +
-  theme_minimal()
+           position = "fill" ) + #-- Bar Plot
+  theme_minimal()                #-- ggplot Theme
 ```
 
 Let's take a general overiew about the `TIC_DATE_TYP` variable:
 
 ```{r Distribution TIC_DATE_TYP Tickets}
-df7_dist_datetyp <- tickets_clean %>%
-  group_by(TIC_DATE_TYP, DIREZIONE) %>%
-  summarize(TOT_TICs = n_distinct(ID_SCONTRINO),
-            TOT_CLIs = n_distinct(ID_CLI)) %>%
-  left_join(df7_dist_direction %>%
-              select(DIREZIONE,
-                     ALL_TOT_TICs = TOT_TICs,
-                     ALL_TOT_CLIs = TOT_CLIs),
-            by = 'DIREZIONE') %>%
-  mutate(PERCENT_TICs = TOT_TICs/ALL_TOT_TICs,
-         PERCENT_CLIs = TOT_CLIs/ALL_TOT_CLIs) %>%
-  select(-ALL_TOT_TICs, -ALL_TOT_CLIs)
+df7_dist_datetyp <- tickets_clean                                  %>%
+                      group_by(TIC_DATE_TYP, DIREZIONE)            %>% #-- Grouped By Type of Date & Purchases
+                      summarize(TOT_TICs = n_distinct(ID_SCONTRINO),
+                                TOT_CLIs = n_distinct(ID_CLI))     %>% #-- Number of Total Clients & Tickets
+                      left_join(df7_dist_direction                 %>%
+                                  select(DIREZIONE,
+                                         ALL_TOT_TICs = TOT_TICs,
+                                         ALL_TOT_CLIs = TOT_CLIs),
+                                by = 'DIREZIONE')                  %>% #-- Left Join with df7_dist_direction
+                      mutate(PERCENT_TICs = TOT_TICs/ALL_TOT_TICs,
+                             PERCENT_CLIs = TOT_CLIs/ALL_TOT_CLIs) %>% #-- Percent
+                      select(-ALL_TOT_TICs, -ALL_TOT_CLIs)
 
 knitr::kable(df7_dist_datetyp)
 
@@ -1243,34 +1260,34 @@ knitr::kable(df7_dist_datetyp)
 ggplot(data = df7_dist_datetyp,
        aes(fill = DIREZIONE,
            x = TIC_DATE_TYP,
-           y = TOT_TICs)) +
- geom_bar(stat = "identity") +
- theme_minimal()
+           y = TOT_TICs)) +    #-- Data to Plot
+ geom_bar(stat = "identity") + #-- Bar Plot
+ theme_minimal()               #-- ggplot Theme
 
 #-- TIC_DATE_TYP Percent
 ggplot(data = df7_dist_datetyp,
        aes(fill = DIREZIONE,
            x = TIC_DATE_TYP,
-           y = TOT_TICs)) +
+           y = TOT_TICs)) +      #-- Data to Plot
   geom_bar(stat = "identity",
-           position = "fill" ) +
-  theme_minimal()
+           position = "fill" ) + #-- Bar Plot
+  theme_minimal()                #-- ggplot Theme
 ```
 
 Let's take a general overiew about the `IMPORTO_LORDO` variable:
 
 ```{r Distribution IMPORTO_LORDO Tickets}
-df7_dist_importosconto <- tickets_clean %>%
-  group_by(ID_SCONTRINO, DIREZIONE) %>%
-  summarize(IMPORTO_LORDO = sum(IMPORTO_LORDO),
-            SCONTO = sum(SCONTO)) %>%
-  ungroup() %>%
-  as.data.frame()
+df7_dist_importosconto <- tickets_clean                       %>%
+                            group_by(ID_SCONTRINO, DIREZIONE) %>% #-- Grouped By Tickets & Purchases
+                            summarize(IMPORTO_LORDO = sum(IMPORTO_LORDO),
+                                      SCONTO = sum(SCONTO))   %>% #-- Number of of Total Purchase 
+                            ungroup()                         %>%
+                            as.data.frame()
 
 df7_dist_avgimportosconto <- df7_dist_importosconto %>%
-  group_by(DIREZIONE) %>%
-  summarize(AVG_IMPORTO_LORDO = mean(IMPORTO_LORDO),
-            AVG_SCONTO = mean(SCONTO))
+                                group_by(DIREZIONE) %>%                            #-- Grouped By Purchases
+                                summarize(AVG_IMPORTO_LORDO = mean(IMPORTO_LORDO), #-- Total Average Purchase
+                                AVG_SCONTO = mean(SCONTO))
 
 knitr::kable(df7_dist_avgimportosconto)
 
@@ -1278,29 +1295,31 @@ knitr::kable(df7_dist_avgimportosconto)
 ggplot(data = df7_dist_importosconto %>%
          filter((IMPORTO_LORDO > -1000) & (IMPORTO_LORDO < 1000)),
        aes(color = DIREZIONE,
-           x = IMPORTO_LORDO)) +
+           x = IMPORTO_LORDO)) + #-- Data to Plot
   geom_histogram(binwidth = 10,
                  fill = "white",
-                 alpha = 0.5) +
-  theme_minimal()
+                 alpha = 0.5) +  #-- Histogram
+  theme_minimal()                #-- ggplot Theme
 
 #-- IMPORTO_LORDO Percent
 ggplot(data = df7_dist_importosconto %>%
          filter((SCONTO > -250) & (IMPORTO_LORDO < 250)),
-       aes(color = DIREZIONE, x = SCONTO)) +
+       aes(color = DIREZIONE, x = SCONTO)) + #-- Data to Plot
   geom_histogram(binwidth = 10,
                  fill = "white",
-                 alpha = 0.5) +
-  theme_minimal()
+                 alpha = 0.5) +              #-- Histogram
+  theme_minimal()                            #-- ggplot Theme
 ```
+
+Let's take a general overiew about the average `IMPORTO_LORDO` variable:
 
 ```{r Distribution Average IMPORTO_LORDO Tickets}
 df7_dist_importosconto_cod_rep <- tickets_clean %>%
-  group_by(COD_REPARTO, DIREZIONE) %>%
-  summarize(IMPORTO_LORDO = sum(IMPORTO_LORDO),
-            SCONTO = sum(SCONTO)) %>%
-  ungroup() %>%
-  as.data.frame()
+                                    group_by(COD_REPARTO, DIREZIONE) %>% #-- Grouped By COD_REPARTO & Purchases
+                                    summarize(IMPORTO_LORDO = sum(IMPORTO_LORDO),
+                                              SCONTO = sum(SCONTO)) %>%  #-- Number of Total Purchase
+                                    ungroup() %>%
+                                    as.data.frame()
 
 knitr::kable(df7_dist_importosconto_cod_rep)
 
@@ -1308,162 +1327,281 @@ knitr::kable(df7_dist_importosconto_cod_rep)
 ggplot(data = df7_dist_importosconto_cod_rep,
        aes(fill = DIREZIONE,
            x = COD_REPARTO,
-           y = IMPORTO_LORDO)) +
- geom_bar(stat = "identity") +
- theme_minimal()
+           y = IMPORTO_LORDO)) + #-- Data to Plot
+ geom_bar(stat = "identity") +   #-- Bar Plot
+ theme_minimal()                 #-- ggplot Theme
 
 #-- SCONTO
 ggplot(data = df7_dist_importosconto_cod_rep,
        aes(fill = DIREZIONE,
            x = COD_REPARTO,
-           y = SCONTO)) +
- geom_bar(stat = "identity") +
- theme_minimal()
+           y = SCONTO)) +      #-- Data to Plot
+ geom_bar(stat = "identity") + #-- Bar Plot
+ theme_minimal()               #-- ggplot Theme
 ```
+
+Let's take a general overiew about the `ID_ARTICOLO` variable:
 
 ```{r Distribution ID_ARTICOLO}
 tickets_clean$ID_ARTICOLO <- as.factor(tickets_clean$ID_ARTICOLO)
 
-tickets_clean
-
-df7_dist_id_articolo <- tickets_clean %>%
-  filter(DIREZIONE == 1) %>%
-  group_by(ID_ARTICOLO) %>%
-  summarize(NUM_VENDITE = n_distinct(ID_SCONTRINO)) %>%
-  ungroup() %>%
-  as.data.frame() %>%
-  arrange(desc(NUM_VENDITE))
+df7_dist_id_articolo <- tickets_clean                                       %>%
+                          filter(DIREZIONE == 1)                            %>% #-- Only Purchases
+                          group_by(ID_ARTICOLO)                             %>% #-- Grouped By Items
+                          summarize(NUM_VENDITE = n_distinct(ID_SCONTRINO)) %>% #-- Number of Total Tickets
+                          ungroup()                                         %>%
+                          as.data.frame()                                   %>%
+                          arrange(desc(NUM_VENDITE))
 
 knitr::kable(head(df7_dist_id_articolo))
 ```
 
+Let's take a general overiew about the average `ID_CLIENTE` variable:
+
 ```{r Distribution Average ID_CLIENTE Tickets}
-df7_dist_importosconto_id_cli <- tickets_clean %>%
-  filter(DIREZIONE == 1) %>%
-  group_by(ID_CLI) %>%
-  summarize(IMPORTO_LORDO = sum(IMPORTO_LORDO),
-            SCONTO = sum(SCONTO)) %>%
-  ungroup() %>%
-  as.data.frame() %>%
-  arrange(desc(IMPORTO_LORDO))
+df7_dist_importosconto_id_cli <- tickets_clean                      %>%
+                                    filter(DIREZIONE == 1)          %>% #-- Only Purchases
+                                    group_by(ID_CLI)                %>% #-- Grouped By Clients
+                                    summarize(IMPORTO_LORDO = sum(IMPORTO_LORDO),
+                                              SCONTO = sum(SCONTO)) %>% #-- Number of Total Purchase
+                                    ungroup()                       %>%
+                                    as.data.frame()                 %>%
+                                    arrange(desc(IMPORTO_LORDO))
 
 knitr::kable(head(df7_dist_importosconto_id_cli))
 ```
 
-```{r}
+Let's plot the Total Purchase Distribution:
+
+```{r Distribution Total Purchase Tickets}
 df7_dist_tot_purch <- tickets_clean %>%
-                        filter(DIREZIONE == 1) %>%
-                        group_by(ID_CLI) %>%
-                        summarise(TOT_PURCHASE = n_distinct(ID_SCONTRINO)) %>%
-                        arrange(desc(TOT_PURCHASE))
+                        filter(DIREZIONE == 1)                             %>% #-- Only Purchases
+                        group_by(ID_CLI)                                   %>% #-- Grouped By Clients
+                        summarise(TOT_PURCHASE = n_distinct(ID_SCONTRINO)) %>% #-- Number of Total Purchase
+                        arrange(desc(TOT_PURCHASE))                            #-- Sorted By Total Purchase
 
 knitr::kable(head(df7_dist_tot_purch))
 ```
 
-```{r}
-df7_dist_recency <- tickets_clean %>%
-  filter(DIREZIONE == 1) %>%
+Let's plot the Total Purchase Curve:
+
+```{r Next Purchase Curve Tickets, eval = FALSE}
+#-- Days for Next Purchase Curve
+data_for_next_purchase <- tickets_clean %>%
+                            filter(DIREZIONE == 1) %>% #-- Only Purchases
+                            select(ID_CLI,
+                                   ID_ARTICOLO,
+                                   TIC_DATE,
+                                   DIREZIONE)      %>% #-- Variable Selection
+                            arrange(ID_CLI)
+
+data_for_next_purchase
+
+
+a <- data_for_next_purchase[1:500000,]
+
+df_np <- data_for_next_purchase %>%
   group_by(ID_CLI) %>%
-  summarise(LAST_PURCHASE_DATE = max(TIC_DATE))
-
-df7_dist_recency$RECENCY <- difftime(as.Date("30/04/2019", format = "%d/%m/%Y"),
-                                     df7_dist_recency$LAST_PURCHASE_DATE, units = "days")
-
-knitr::kable(head(df7_dist_recency))
+  mutate(Diff = TIC_DATE - lag(TIC_DATE))
 ```
 
 # RFM Model
 
-```{r}
+Recency, Frequency and *Monetary* value is a marketing analysis tool used to identify a company's or an organization's best customers by using certain measures.
+The RFM model is based on three quantitative factors:
+
+* *Recency*: How recently a customer has made a purchase;
+* *Frequency*: How often a customer makes a purchase;
+* *Monetary* Value: How much money a customer spends on purchases.
+
+The output of the RFM model is primarily used to differentiate the marketing actions accros the customer base. 
+Typical applications are:
+
+* Investing more in marketing care actions for the best customers;
+* Identifying the most cost efficcient marketing actions to increase the value of medium-value customers;
+* Save budget on marketing actions for low-value customers.
+
+These three factors can be used to reasonably predict how likely (or unlikely) it is that a customer will do business again with a firm or, in the case of a charitable organization, make another donation. [^1]
+
+[^1]: [Investopedia.com](https://www.investopedia.com/terms/r/rfm-recency-frequency-monetary-value.asp)
+
+Let's take as active clients if the last purchase is after *01/01/2019*:
+
+```{r RFM Study Period}
 rfm_study_period <- tickets_clean %>%
-  filter(TIC_DATE > as.Date("01/01/2019", format = "%d/%m/%Y")) #-- Active 
+                      filter(TIC_DATE > as.Date("01/01/2019",
+                                                format = "%d/%m/%Y")) #-- Active Clients
 
 knitr::kable(head(rfm_study_period))
 ```
 
-```{r}
-rfm_recency <- rfm_study_period %>%
-  filter(DIREZIONE == 1) %>%
-  group_by(ID_CLI) %>%
-  summarise(LAST_PURCHASE_DATE = max(TIC_DATE))
+## Recency
 
-rfm_recency$RECENCY <- difftime(as.Date("30/04/2019", format = "%d/%m/%Y"),          #-- Recency
-                                     rfm_recency$LAST_PURCHASE_DATE, units = "days")
+The more recently a customer has made a purchase with a company, the more likely he or she will continue to keep the business and brand in mind for subsequent purchases.
+Compared with customers who have not bought from the business in months or even longer periods, the likelihood of engaging in future transactions with recent customers is arguably higher.
+
+Such information can be used to remind recent customers to revisit the business soon to continue meeting their purchase needs.
+In an effort not to overlook lapsed customers, marketing efforts could be made to remind them that it has been a while since their last transaction while offering them an incentive to rekindle their patronage.
+
+```{r RFM Recency}
+rfm_recency <- rfm_study_period %>%
+                  filter(DIREZIONE == 1) %>% #-- Only Purchases
+                  group_by(ID_CLI)       %>% #-- Grouped By Clients
+                  summarise(LAST_PURCHASE_DATE = max(TIC_DATE))
+
+rfm_recency$RECENCY <- difftime(as.Date("30/04/2019",
+                                        format = "%d/%m/%Y"),        #-- Recency
+                                     rfm_recency$LAST_PURCHASE_DATE,
+                                units = "days")
 
 knitr::kable(head(rfm_recency))
 ```
 
-```{r}
-rfm_frequency <- rfm_study_period %>%
-                    filter(DIREZIONE == 1) %>%
-                    group_by(ID_CLI) %>%
+We divided the type of recency in 3 different group:
+
+* `Low`: below the 25th percentile of the distribution;
+* `Medium`: from 25th to 75th percentile;
+* `High`: above 75th percentile;
+
+```{r RFM Recency Classes}
+rfm_recency <- within(rfm_recency,
+                 REC_CLASS <- cut(as.numeric(rfm_recency$RECENCY),
+                                  breaks = quantile(rfm_recency$RECENCY,
+                                                    probs = c(0, .25, .75, 1)), #-- Quantiles
+                                  include.lowest = T,
+                                  labels = c("low", "medium", "high")))         #-- Classes
+
+rec_label <- as.data.frame(table(rfm_recency$REC_CLASS))
+
+ggplot(data = rec_label,
+       aes(x = Var1, y = Freq,
+           fill = Freq)) +                        #-- Dataset to Plot
+  geom_bar(stat = "identity") +                   #-- Bar Plot
+  labs(title = "Recency Distribution",
+       x     = "Recency Classes",
+       y     = "Total Purchase") +                #-- Labs
+  theme_minimal() +                               #-- ggplot Theme
+  theme(plot.title = element_text(hjust = 0.5)) + #-- Centering Title
+  scale_x_discrete(labels = c("Low", "Medium", "High")) + 
+  guides(fill = FALSE)
+```
+
+## Frequency
+
+The frequency of a customer’s transactions may be affected by factors such as the type of product, the price point for the purchase, and the need for replenishment or replacement. If the purchase cycle can be predicted, for example when a customer needs to buy new groceries, marketing efforts could be directed towards reminding them to visit the business when items such as eggs or milk have been depleted.
+
+```{r RFM Frequency}
+rfm_frequency <- rfm_study_period                                      %>%
+                    filter(DIREZIONE == 1)                             %>% #-- Only Purchases
+                    group_by(ID_CLI)                                   %>% #-- Grouped By Clients
                     summarise(TOT_PURCHASE = n_distinct(ID_SCONTRINO)) %>%
                     arrange(desc(TOT_PURCHASE))
 
 knitr::kable(head(rfm_frequency))
 ```
 
-```{r}
-rfm_monetary <- rfm_study_period %>%
-  filter(DIREZIONE == 1) %>%
-  group_by(ID_CLI) %>%
-  summarize(IMPORTO_LORDO = sum(IMPORTO_LORDO),
-            SCONTO = sum(SCONTO),
-            SPESA = IMPORTO_LORDO - SCONTO) %>%
-  ungroup() %>%
-  as.data.frame() %>%
-  arrange(desc(IMPORTO_LORDO))
+We divided the type of recency in 3 different group:
+
+* `Low`: below 2 total purchases;
+* `Medium`: from 2 to 5 purchases;
+* `High`: above 5 (to 101) purchases;
+
+```{r RFM Frequency Classes}
+rfm_frequency <- within(rfm_frequency,
+                   FREQ_CLASS <- cut(rfm_frequency$TOT_PURCHASE,
+                                     breaks = c(0, 2, 5, 101),             #-- Break of Classes
+                                     include.lowest = T,
+                                     right = F,
+                                     labels = c("low", "medium", "high"))) #-- Classes
+
+table(rfm_frequency$FREQ_CLASS)
+
+freq_label <- as.data.frame(table(rfm_frequency$FREQ_CLASS))
+
+ggplot(data = x,
+       aes(x = Var1, y = Freq,
+           fill = Freq)) +                        #-- Dataset to Plot
+  geom_bar(stat = "identity") +                   #-- Bar Plot
+  labs(title = "Frequency Distribution",
+       x     = "Frequency Classes",
+       y     = "Total Purchase") +                #-- Labs
+  theme_minimal() +                               #-- ggplot Theme
+  theme(plot.title = element_text(hjust = 0.5)) + #-- Centering Title
+  scale_x_discrete(labels = c("Low", "Medium", "High")) + 
+  guides(fill = FALSE)
+```
+
+## Monetary
+
+Monetary value stems from the lucrativeness of expenditures the customer makes with the business during their transactions. A natural inclination is to put more emphasis on encouraging customers who spend the most money to continue to do so. While this can produce a better return on investment in marketing and customer service, it also runs the risk of alienating customers who have been consistent but have not spent as much with each transaction.
+
+```{r RFM Monetary}
+rfm_monetary <- rfm_study_period                            %>%
+                  filter(DIREZIONE == 1)                    %>% #-- Only Purchases
+                  group_by(ID_CLI)                          %>% #-- Grouped By Clients
+                  summarize(IMPORTO_LORDO = sum(IMPORTO_LORDO),
+                            SCONTO = sum(SCONTO),
+                            SPESA = IMPORTO_LORDO - SCONTO) %>%
+                  ungroup()                                 %>%
+                  as.data.frame()                           %>%
+                  arrange(desc(IMPORTO_LORDO))
 
 knitr::kable(head(rfm_monetary))
 ```
 
-```{r}
-# 0-2 -> "low"
-# 3-4 -> "medium"
-# 5+ -> "high"
+We divided the type of recency in 3 different group:
 
-rfm_frequency <- within(rfm_frequency,
-                   FREQ_CLASS <- cut(rfm_frequency$TOT_PURCHASE,
-                                              breaks = c(0, 2, 5, 101),
-                                              include.lowest=T,
-                                     right = F,
-                                     labels = c("low", "medium", "high")))
-table(rfm_frequency$FREQ_CLASS)
-```
+* `Low`: below 2 total purchases;
+* `Medium`: from 2 to 5 purchases;
+* `High`: above 5 (to 101) purchases;
 
-```{r}
-rfm_recency <- within(rfm_recency,
-                   REC_CLASS <- cut(as.numeric(rfm_recency$RECENCY),
-                                              breaks = quantile(rfm_recency$RECENCY, probs=c(0, .25, .75, 1)),
-                                              include.lowest=T,
-                                     labels = c("low", "medium", "high")),
-                   )
-
-table(rfm_recency$REC_CLASS)
-```
-
-```{r}
+```{r RFM Monetary Classes}
 rfm_monetary <- within(rfm_monetary,
                    MON_CLASS <- cut(rfm_monetary$SPESA,
-                                              breaks = quantile(rfm_monetary$SPESA, probs=c(0, .25, .75, 1)),
-                                              include.lowest=T,
-                                     labels = c("low", "medium", "high")),
-                   )
+                                    breaks = quantile(rfm_monetary$SPESA,
+                                                      probs = c(0, .25, .75, 1)),
+                                    include.lowest = T,
+                                    labels = c("low", "medium", "high"))) #-- Classes
 
 table(rfm_monetary$MON_CLASS)
+
+mon_label <- as.data.frame(table(rfm_monetary$MON_CLASS))
+
+ggplot(data = mon_label,
+       aes(x = Var1, y = Freq,
+           fill = Freq)) +                        #-- Dataset to Plot
+  geom_bar(stat = "identity") +                   #-- Bar Plot
+  scale_colour_brewer(palette = "Spectral") +
+  labs(title = "Monetary Distribution",
+       x     = "Monetary Classes",
+       y     = "Total Amount") +                  #-- Labs
+  theme_minimal() +                               #-- ggplot Theme
+  theme(plot.title = element_text(hjust = 0.5)) + #-- Centering Title
+  scale_x_discrete(labels = c("Low", "Medium", "High")) + 
+  guides(fill = FALSE)
 ```
 
+## Merge
 
-```{r}
-rfm <- merge(rfm_frequency, rfm_monetary, by = "ID_CLI")
-rfm <- merge(rfm, rfm_recency, by = "ID_CLI")
+We merge all three RFM dataset in one:
 
-rfm[,c("ID_CLI","REC_CLASS","FREQ_CLASS","MON_CLASS")]
+```{r RFM Merge}
+rfm <- merge(rfm_frequency, #-- Frequency
+             rfm_monetary,  #-- Monetary
+             by = "ID_CLI") #-- Key for Merge
 
-save(rfm,rfm_monetary,rfm_recency,rfm_frequency, file = "rfm.RData")
+rfm <- merge(rfm,           #-- Frequency + Monetary
+             rfm_recency,   #-- Recency
+             by = "ID_CLI") #-- Key for Merge
+
+knitr::kable(rfm[ , c("ID_CLI", "REC_CLASS", "FREQ_CLASS", "MON_CLASS")])
+
+save(rfm, rfm_monetary, rfm_recency, fm_frequency, file = "rfm.RData")
 ```
 
-```{r}
+The recency and frequency percentilr groups are combined to define new classes describing the customer loyalty status:
+
+```{r RF Dataset & Plot}
 rfm$RF <- NA
 
 for(i in c(1:nrow(rfm))){
@@ -1478,5 +1616,250 @@ for(i in c(1:nrow(rfm))){
   if(rfm$REC_CLASS[i] == "high" && rfm$FREQ_CLASS[i] == "high") rfm$RF[i] <- "Leaving Top"
 }
 
-table(rfm$RF)
+rf <- as.data.frame(table(rfm$RF))
+rf
+
+df_rf <- rbind(c(16248, 36316, 32763), 
+               c(16248, 31316,   32763),
+               c(592,   27187, 	27187))
+
+colnames(df_rf) <-  c("High", "Medium", "Low")
+rownames(df_rf) <- c("High", "Medium", "Low")
+
+knitr::kable(df_rf)
+
+ggplot(data = rf,
+       aes(x = Var1, y = Freq,
+           fill = Freq)) +                        #-- Dataset to Plot
+  geom_bar(stat = "identity") +                   #-- Bar Plot
+  scale_colour_brewer(palette = "Spectral") +
+  labs(title = "RF Distribution",
+       x     = "RF Classes",
+       y     = "Total Clients") +                  #-- Labs
+  theme_minimal() +                               #-- ggplot Theme
+  theme(plot.title = element_text(hjust = 0.5)) + #-- Centering Title
+  scale_x_discrete(labels = c("Engaged", "Leaving", "Leaving Top",
+                              "One Timer", "Top")) + 
+  guides(fill = FALSE)
 ```
+
+Finally, the RFM classe are obtained combining the RF classes with the Monetary groups
+
+```{r RFM Dataset & Plot}
+rfm$RFM <- NA
+
+for(i in c(1:nrow(rfm))){
+  if(rfm$RF[i] == "One-Timer" && rfm$MON_CLASS[i] == "low") rfm$RFM[i] <- "Cheap"
+  if(rfm$RF[i] == "Leaving" && rfm$MON_CLASS[i] == "low") rfm$RFM[i] <- "Tin"
+  if(rfm$RF[i] == "Engaged" && rfm$MON_CLASS[i] == "low") rfm$RFM[i] <- "Copper"
+  if(rfm$RF[i] == "Leaving Top" && rfm$MON_CLASS[i] == "low") rfm$RFM[i] <- "Bronze"
+  if(rfm$RF[i] == "Top" && rfm$MON_CLASS[i] == "low") rfm$RFM[i] <- "Silver"
+  
+  if(rfm$RF[i] == "One-Timer" && rfm$MON_CLASS[i] == "medium") rfm$RFM[i] <- "Tin"
+  if(rfm$RF[i] == "Leaving" && rfm$MON_CLASS[i] == "medium") rfm$RFM[i] <- "Copper"
+  if(rfm$RF[i] == "Engaged" && rfm$MON_CLASS[i] == "medium") rfm$RFM[i] <- "Bronze"
+  if(rfm$RF[i] == "Leaving Top" && rfm$MON_CLASS[i] == "medium") rfm$RFM[i] <- "Silver"
+  if(rfm$RF[i] == "Top" && rfm$MON_CLASS[i] == "medium") rfm$RFM[i] <- "Gold"
+  
+  if(rfm$RF[i] == "One-Timer" && rfm$MON_CLASS[i] == "high") rfm$RFM[i] <- "Copper"
+  if(rfm$RF[i] == "Leaving" && rfm$MON_CLASS[i] == "high") rfm$RFM[i] <- "Bronze"
+  if(rfm$RF[i] == "Engaged" && rfm$MON_CLASS[i] == "high") rfm$RFM[i] <- "Silver"
+  if(rfm$RF[i] == "Leaving Top" && rfm$MON_CLASS[i] == "high") rfm$RFM[i] <- "Gold"
+  if(rfm$RF[i] == "Top" && rfm$MON_CLASS[i] == "high") rfm$RFM[i] <- "Diamond"
+}
+
+#-- campagne mirate (farli spendere di più o più spesso) sui Bronze e Silver
+#-- più investimenti per diamond/gold
+#-- far tornare i leaving (tin e copper)
+
+rfm_df <- rbind(c(10984, 5585, 10306, 25932, 20938),
+                c(5585, 10306, 25932, 20938, 24967),
+                c(10306, 25932, 20938, 24967, 14394))
+
+colnames(rfm_df) <-  c("Top", "Leaving Top", "Engaged", "Leaving", "One Timer")
+rownames(rfm_df) <- c("High", "Medium", "Low")
+
+knitr::kable(rfm_df)
+
+rfm_plot <- as.data.frame(table(rfm$RFM))
+rfm_plot
+
+ggplot(data = rfm_plot,
+       aes(x = Var1, y = Freq,
+           fill = Freq)) +                        #-- Dataset to Plot
+  geom_bar(stat = "identity") +                   #-- Bar Plot
+  scale_colour_brewer(palette = "Spectral") +
+  labs(title = "RFM Distribution",
+       x     = "RFM Classes",
+       y     = "Total Clients") +                  #-- Labs
+  theme_minimal() +                               #-- ggplot Theme
+  theme(plot.title = element_text(hjust = 0.5)) + #-- Centering Title
+  scale_x_discrete(labels = c("Bronze", "Cheap", "Copper", "Diamond",
+                              "Gold", "Silver", "Tin")) + 
+  guides(fill = FALSE)
+```
+
+# Churn
+```{r, eval = FALSE}
+
+
+```{r Churn}
+#-- data di riferimento nel passato: 1/1/2019
+churn_study_period <- tickets_clean %>%
+  filter(DIREZIONE == 1,
+         TIC_DATE < as.Date("1/1/2019", format = "%d/%m/%Y"),
+         TIC_DATE > as.Date("01/10/2018", format = "%d/%m/%Y"))
+  
+churn_study_period
+
+
+
+#-- data di lookback: 3 mesi
+
+
+
+#-- data di holdout: 30 gennaio
+
+
+
+#-- pred: freq di acquisto, tot speso, recency, carta fedeltà, job
+
+#-- Recency
+churn_recency <- churn_study_period %>%
+  filter(DIREZIONE == 1) %>%
+  group_by(ID_CLI) %>%
+  summarise(LAST_PURCHASE_DATE = max(TIC_DATE))
+
+churn_recency$RECENCY <- difftime(as.Date("01/01/2019", format = "%d/%m/%Y"),          #-- Recency
+                                     churn_recency$LAST_PURCHASE_DATE, units = "days")
+
+
+#-- Frequency
+churn_frequency <- churn_study_period %>%
+                    filter(DIREZIONE == 1) %>%
+                    group_by(ID_CLI) %>%
+                    summarise(TOT_PURCHASE = n_distinct(ID_SCONTRINO)) %>%
+                    arrange(desc(TOT_PURCHASE))
+
+knitr::kable(head(rfm_frequency))
+
+#-- Monetary
+churn_monetary <- churn_study_period %>%
+  filter(DIREZIONE == 1) %>%
+  group_by(ID_CLI) %>%
+  summarize(IMPORTO_LORDO = sum(IMPORTO_LORDO),
+            SCONTO = sum(SCONTO),
+            SPESA = IMPORTO_LORDO - SCONTO) %>%
+  ungroup() %>%
+  as.data.frame() %>%
+  arrange(desc(IMPORTO_LORDO))
+
+#-- merge
+churn <- merge(churn_recency, churn_frequency, by = "ID_CLI")
+churn <- merge(churn, churn_monetary, by = "ID_CLI")
+churn <- churn %>%
+  select(ID_CLI,
+         RECENCY,
+         SPESA, 
+         TOT_PURCHASE)
+churn
+
+#-- view interesting variables added
+table(account_clean$TYP_JOB)
+table(fidelity_clean$COD_FID)
+table(address_clean$REGION)
+
+
+#-- left join
+
+churn <- left_join(churn, account_clean[, c("ID_CLI", "TYP_JOB")], by = "ID_CLI")
+
+churn <- left_join(churn, fidelity_clean[, c("ID_CLI", "COD_FID")], by = "ID_CLI")
+
+region <- left_join(account_clean[, c("ID_CLI", "ID_ADDRESS")], address_clean[, c("ID_ADDRESS", "REGION")], by = "ID_ADDRESS")
+
+churn <- left_join(churn, region, by = "ID_CLI")
+churn
+
+#-- churn #-- data di holdout: 30 gennaio
+churn_holdout <- tickets_clean %>%
+  filter(DIREZIONE == 1,
+         TIC_DATE < as.Date("28/02/2019", format = "%d/%m/%Y"),
+         TIC_DATE > as.Date("01/01/2019", format = "%d/%m/%Y"))
+churn_holdout
+
+no_churner <- unique(churn_holdout$ID_CLI)
+
+churn$CHURN <- 1
+
+for (i in c(1:nrow(churn))){
+  if (churn$ID_CLI[i] %in% no_churner) churn$CHURN[i] <- 0
+}
+
+churn$CHURN <- as.factor(churn$CHURN)
+
+table(churn$CHURN)
+#-- la maggior parte delle persone ha acquistato tra il 1 ottobre e il 1 gennaio 1 o 2 volte, quindi è plausibile che la maggior di loro non siano tornati tra il 1 gennaio ed il 28 febbraio (negozio con acquisti rari)
+```
+
+
+```{r}
+churn <- na.omit(churn)
+
+#-- rf, log reg, tree, gradient boosting, svm
+train_index <- createDataPartition(churn$CHURN, 
+                                   p = .70, 
+                                   list = FALSE, 
+                                   times = 1)
+
+
+
+train <- churn[train_index,]
+test <- churn[-train_index,]
+
+table(train$CHURN)
+```
+
+
+```{r}
+#Recursive Partitioning And Regression Trees
+tree <- rpart(CHURN ~ ., data = train)
+rpart.plot(tree, extra = "auto")
+summary(tree) #num di acquisti è la variabile più importante
+printcp(tree) #complexity parameter
+```
+
+
+```{r}
+#Random Forest
+memory.limit(100000)
+tree_rf <- randomForest::randomForest(CHURN ~ ., data= train, ntree = 100)
+print(tree_rf)
+#prediction rf
+pred_rf <- rpart.predict(tree_rf, test[,-1], type = "class")
+confusionMatrix(pred_rf, test$CHURN)
+```
+
+
+```{r}
+#Logistic
+logistic <- glm(CHURN ~. , family = binomial, data=train)
+summary(logistic)
+
+#prediction rpart
+pred <- rpart.predict(tree, test[,-],type = "class")
+p1 <- unlist(pred)
+confusionMatrix( p1, test$CHURN)
+```
+
+```{r}
+# ricodificare y
+gbm1 <- train(CHURN~., data=train, method='gbm',
+                      trControl=trainControl(method="cv", number=10, search="grid", 
+                      summaryFunction = twoClassSummary, classProbs = TRUE), 
+                      metric=metric, tuneLength=5)
+# sul train senza preprocessing
+gbm1
+confusionMatrix(gbm1)
+```
+
