@@ -28,12 +28,14 @@ library(rpart)
 library(rpart.plot)
 library(MLmetrics)
 library(randomForest)
-library(Rcmdr)
 library(glmnet)
+library(LiblineaR)
+
+load("objects.RData")
 
 set.seed(123456) #-- Set seed for same results
 
-data_dir <- "C:\\Users\\cafil\\Desktop\\Digital-Marketing\\Dataset\\"
+data_dir <- "G:\\Il mio Drive\\Università\\Data Science\\1° Anno\\Web Marketing and Communication Management\\Esame\\Dataset"
 ```
 
 # Reading Files
@@ -219,8 +221,6 @@ num_fid_x_cli <- fidelity_clean     %>%
 
 
 ```{r Fidelity Subscriptions 2}
-load("fid_cli.RData")
-
 tot_id_cli <- n_distinct(num_fid_x_cli$ID_CLI)
 
 dist_num_fid_x_cli <- num_fid_x_cli %>%
@@ -245,10 +245,6 @@ fidelity_clean %>%
 ```
 
 After, we combine the information for each client from first subscription (registration date and store for registration) to the last (type of fidelity and status):
-
-```{r Import Info Combined Fidelty, include = FALSE}
-load("cli_fid_first_last.RData")
-```
 
 ```{r Info Combined Fidelity, eval = FALSE}
 client_fidelity_first <- fidelity_clean                        %>%
@@ -712,12 +708,7 @@ There could be multiple opens of the same communication:
 1. Count the open events;
 2. Consider explicitely only the first open.
 
-```{r, include = FALSE}
-load("opens.RData")
-```
-
 ```{r Open Campaign Event, eval = FALSE}
-#-- ci mette troppo
 df_opens_prep <- campaign_event_clean              %>%
                     filter(TYP_EVENT == "V")       %>% #-- Filter Sends
                     select(-TYP_EVENT)             %>%
@@ -754,11 +745,6 @@ There could be multiple clicks of the same communication:
 
 1. Count the click events;
 2. Consider explicitely only the first click.
-
-```{r, include = FALSE}
-load("clicks.RData")
-```
-
 
 ```{r Clicks Campaign Event, eval = FALSE}
 df_clicks_prep <- campaign_event_clean                              %>%
@@ -1084,7 +1070,7 @@ ggplot(data = df6_dist_numopens,
            y = TOT_ID)) +        #-- Data to Plot
   geom_bar(stat = "identity",
            fill = "steelblue") + #-- Bar Plot
-  xlim(0, 15)+                   #-- X Limit
+  xlim(0, 15) +                  #-- X Limit
   theme_minimal()                #-- ggplot Theme
 ```
 
@@ -1397,12 +1383,18 @@ data_for_next_purchase <- tickets_clean %>%
 
 data_for_next_purchase
 
-
-a <- data_for_next_purchase[1:500000,]
-
 df_np <- data_for_next_purchase %>%
   group_by(ID_CLI) %>%
   mutate(Diff = TIC_DATE - lag(TIC_DATE))
+
+x <- as.data.frame(table(df_np$Diff))
+x <- x[-1, ]
+x$Perc <- x$Freq/sum(x$Freq)
+
+ggplot(x, 
+       aes(x = as.numeric(Var1), y = cumsum(Perc))) +
+  xlim(0, 100) + 
+  geom_line()
 ```
 
 # RFM Model
@@ -1518,7 +1510,7 @@ table(rfm_frequency$FREQ_CLASS)
 
 freq_label <- as.data.frame(table(rfm_frequency$FREQ_CLASS))
 
-ggplot(data = x,
+ggplot(data = freq_label,
        aes(x = Var1, y = Freq,
            fill = Freq)) +                        #-- Dataset to Plot
   geom_bar(stat = "identity") +                   #-- Bar Plot
@@ -1595,13 +1587,11 @@ rfm <- merge(rfm,           #-- Frequency + Monetary
              by = "ID_CLI") #-- Key for Merge
 
 knitr::kable(rfm[ , c("ID_CLI", "REC_CLASS", "FREQ_CLASS", "MON_CLASS")])
-
-save(rfm, rfm_monetary, rfm_recency, fm_frequency, file = "rfm.RData")
 ```
 
 The recency and frequency percentilr groups are combined to define new classes describing the customer loyalty status:
 
-```{r RF Dataset & Plot}
+```{r RF Dataset}
 rfm$RF <- NA
 
 for(i in c(1:nrow(rfm))){
@@ -1616,17 +1606,37 @@ for(i in c(1:nrow(rfm))){
   if(rfm$REC_CLASS[i] == "high" && rfm$FREQ_CLASS[i] == "high") rfm$RF[i] <- "Leaving Top"
 }
 
+table(rfm$RF)
+```
+
+Let's plot the variable `RF`:
+
+```{r RF Plot}
+rf_df <- as.data.frame(rbind(c("Top",         "High",   "Low",    16248),
+                              c("Top",         "High",   "Medium", 16248),
+                              c("Leaving Top", "High",   "High",   592),
+                              c("Engaged",     "Medium", "Low",    36316),
+                              c("Engaged",     "Medium", "Medium", 36316),
+                              c("Leaving",     "Medium", "High",   27187),
+                              c("One Timer",   "Low",    "Low",    32763),
+                              c("One Timer",   "Low",    "Medium", 32763),
+                              c("Leaving",     "Low",    "High",   27187)))
+
+colnames(rf_df) <-  c("Level", "Frequency", "Recency", "Value")
+rf_df$Frequency <- factor(rf_df$Frequency,
+                          levels = c("High", "Medium", "Low"))
+rf_df$Recency <- factor(rf_df$Recency,
+                          levels = c("High", "Medium", "Low"))
+rf_df$Value <- as.numeric(rf_df$Value)
+
+ggplot(rf_df, aes(x = Frequency, y = Recency, fill = Value)) + 
+  geom_tile() +
+  geom_text(aes(label = Level)) +
+  scale_fill_distiller(palette = "Spectral") +
+  theme_minimal()
+
 rf <- as.data.frame(table(rfm$RF))
 rf
-
-df_rf <- rbind(c(16248, 36316, 32763), 
-               c(16248, 31316,   32763),
-               c(592,   27187, 	27187))
-
-colnames(df_rf) <-  c("High", "Medium", "Low")
-rownames(df_rf) <- c("High", "Medium", "Low")
-
-knitr::kable(df_rf)
 
 ggplot(data = rf,
        aes(x = Var1, y = Freq,
@@ -1635,7 +1645,7 @@ ggplot(data = rf,
   scale_colour_brewer(palette = "Spectral") +
   labs(title = "RF Distribution",
        x     = "RF Classes",
-       y     = "Total Clients") +                  #-- Labs
+       y     = "Total Clients") +                 #-- Labs
   theme_minimal() +                               #-- ggplot Theme
   theme(plot.title = element_text(hjust = 0.5)) + #-- Centering Title
   scale_x_discrete(labels = c("Engaged", "Leaving", "Leaving Top",
@@ -1645,7 +1655,7 @@ ggplot(data = rf,
 
 Finally, the RFM classe are obtained combining the RF classes with the Monetary groups
 
-```{r RFM Dataset & Plot}
+```{r RFM Dataset}
 rfm$RFM <- NA
 
 for(i in c(1:nrow(rfm))){
@@ -1671,15 +1681,40 @@ for(i in c(1:nrow(rfm))){
 #-- campagne mirate (farli spendere di più o più spesso) sui Bronze e Silver
 #-- più investimenti per diamond/gold
 #-- far tornare i leaving (tin e copper)
+```
 
-rfm_df <- rbind(c(10984, 5585, 10306, 25932, 20938),
-                c(5585, 10306, 25932, 20938, 24967),
-                c(10306, 25932, 20938, 24967, 14394))
+Let's plot the RFM matrix
 
-colnames(rfm_df) <-  c("Top", "Leaving Top", "Engaged", "Leaving", "One Timer")
-rownames(rfm_df) <- c("High", "Medium", "Low")
+```{r RFM Plot}
+rfm_df <- as.data.frame(rbind(c("Top", "High", "Diamond", 10984),
+                             c("Top", "Medium", "Gold", 5585),
+                             c("Top", "Low", "Silver", 10306),
+                             c("Leaving Top", "High", "Gold", 5585),
+                             c("Leaving Top", "Medium", "Silver", 10306),
+                             c("Leaving Top", "Low", "Bronze", 25932),
+                             c("Engaged", "High", "Silver", 10306),
+                             c("Engaged", "Medium", "Bronze", 25932),
+                             c("Engaged", "Low", "Copper", 20938),
+                             c("Leaving", "High", "Bronze", 25932),
+                             c("Leaving", "Medium", "Copper", 20938),
+                             c("Leaving", "Low", "Tin", 24967),
+                             c("One Timer", "High", "Copper", 20938),
+                             c("One Timer", "Medium", "Tin", 24967),
+                             c("One Timer", "Low", "Cheap", 14394)))
 
-knitr::kable(rfm_df)
+colnames(rfm_df) <- c("RF", "Monetary", "Level", "Value")
+rfm_df$RF <- factor(rfm_df$RF,
+                    levels = c("Top", "Leaving Top",
+                               "Engaged", "Leaving", "One Timer"))
+rfm_df$Monetary <- factor(rfm_df$Monetary,
+                          levels = c("Low", "Medium", "High"))
+rfm_df$Value <- as.numeric(rfm_df$Value)
+
+ggplot(rfm_df, aes(x = RF, y = Monetary, fill = Value)) + 
+  geom_tile() +
+  geom_text(aes(label = Level)) +
+  scale_fill_distiller(palette = "Spectral") +
+  theme_minimal()
 
 rfm_plot <- as.data.frame(table(rfm$RFM))
 rfm_plot
@@ -1691,7 +1726,7 @@ ggplot(data = rfm_plot,
   scale_colour_brewer(palette = "Spectral") +
   labs(title = "RFM Distribution",
        x     = "RFM Classes",
-       y     = "Total Clients") +                  #-- Labs
+       y     = "Total Clients") +                 #-- Labs
   theme_minimal() +                               #-- ggplot Theme
   theme(plot.title = element_text(hjust = 0.5)) + #-- Centering Title
   scale_x_discrete(labels = c("Bronze", "Cheap", "Copper", "Diamond",
@@ -1699,97 +1734,97 @@ ggplot(data = rfm_plot,
   guides(fill = FALSE)
 ```
 
+```{r RFM Save, eval = FALSE}
+save(rfm, rfm_monetary, rfm_recency, rfm_frequency, file = "rfm.RData")
+```
+
 # Churn
-```{r, eval = FALSE}
 
+*Churn* rate, when applied to a customer base, refers to the proportion of contractual customers or subscribers who leave a supplier during a given time period.
 
-```{r Churn}
-#-- data di riferimento nel passato: 1/1/2019
+Churn is directly related to the profitability of a company.
+The more some can learn about customer behaviors, the more profit can be gained.
+This also helps identifying and improving areas or fields where customer service is lacking.
+
+This aims can be achieved by developing a propensity supervised model:
+
+1. choosing a reference date in the past:
+
+```{r Reference Date Churn}
+#-- Reference Date: 01/01/2019
 churn_study_period <- tickets_clean %>%
-  filter(DIREZIONE == 1,
-         TIC_DATE < as.Date("1/1/2019", format = "%d/%m/%Y"),
-         TIC_DATE > as.Date("01/10/2018", format = "%d/%m/%Y"))
-  
-churn_study_period
+                        filter(DIREZIONE == 1,
+                               TIC_DATE < as.Date("1/1/2019",
+                                                  format = "%d/%m/%Y"),
+                               TIC_DATE > as.Date("01/10/2018",
+                                                  format = "%d/%m/%Y"))
 
+knitr::kable(head(churn_study_period))
+```
 
+2. Imposing the length (frequencey of the distribution and/or the purchase time scale) of an holdout period after each reference date:
 
-#-- data di lookback: 3 mesi
+```{r Holdout Period Churn}
+#-- Holdout Period: 28/02/2019
+churn_holdout <- tickets_clean %>%
+                  filter(DIREZIONE == 1,
+                         TIC_DATE < as.Date("28/02/2019",
+                                            format = "%d/%m/%Y"),
+                         TIC_DATE > as.Date("01/01/2019",
+                                            format = "%d/%m/%Y"))
 
+no_churner <- unique(churn_holdout$ID_CLI)
 
+knitr::kable(head(churn_holdout))
+```
 
-#-- data di holdout: 30 gennaio
+3. Choosing the lenght of a lookback period before the reference date:
 
+```{r Lookback Period Churn}
+#-- Lookback Period: 3 months
 
-
-#-- pred: freq di acquisto, tot speso, recency, carta fedeltà, job
-
-#-- Recency
+#-- Recency to Merge
 churn_recency <- churn_study_period %>%
-  filter(DIREZIONE == 1) %>%
-  group_by(ID_CLI) %>%
-  summarise(LAST_PURCHASE_DATE = max(TIC_DATE))
+                  filter(DIREZIONE == 1) %>%
+                  group_by(ID_CLI) %>%
+                  summarise(LAST_PURCHASE_DATE = max(TIC_DATE))
 
-churn_recency$RECENCY <- difftime(as.Date("01/01/2019", format = "%d/%m/%Y"),          #-- Recency
-                                     churn_recency$LAST_PURCHASE_DATE, units = "days")
+churn_recency$RECENCY <- difftime(as.Date("01/01/2019",
+                                          format = "%d/%m/%Y"),          #-- Recency
+                                  churn_recency$LAST_PURCHASE_DATE,
+                                  units = "days")
 
-
-#-- Frequency
+#-- Frequency to Merge
 churn_frequency <- churn_study_period %>%
                     filter(DIREZIONE == 1) %>%
                     group_by(ID_CLI) %>%
                     summarise(TOT_PURCHASE = n_distinct(ID_SCONTRINO)) %>%
                     arrange(desc(TOT_PURCHASE))
 
-knitr::kable(head(rfm_frequency))
-
-#-- Monetary
+#-- Monetary to Merge
 churn_monetary <- churn_study_period %>%
-  filter(DIREZIONE == 1) %>%
-  group_by(ID_CLI) %>%
-  summarize(IMPORTO_LORDO = sum(IMPORTO_LORDO),
-            SCONTO = sum(SCONTO),
-            SPESA = IMPORTO_LORDO - SCONTO) %>%
-  ungroup() %>%
-  as.data.frame() %>%
-  arrange(desc(IMPORTO_LORDO))
+                    filter(DIREZIONE == 1) %>%
+                    group_by(ID_CLI) %>%
+                    summarize(IMPORTO_LORDO = sum(IMPORTO_LORDO),
+                              SCONTO = sum(SCONTO),
+                              SPESA = IMPORTO_LORDO - SCONTO) %>%
+                    ungroup() %>%
+                    as.data.frame() %>%
+                    arrange(desc(IMPORTO_LORDO))
 
-#-- merge
 churn <- merge(churn_recency, churn_frequency, by = "ID_CLI")
-churn <- merge(churn, churn_monetary, by = "ID_CLI")
-churn <- churn %>%
-  select(ID_CLI,
-         RECENCY,
-         SPESA, 
-         TOT_PURCHASE)
-churn
+churn <- merge(churn, churn_monetary, by = "ID_CLI") %>%
+          select(ID_CLI,
+                 RECENCY,
+                 SPESA, 
+                 TOT_PURCHASE)
 
-#-- view interesting variables added
-table(account_clean$TYP_JOB)
-table(fidelity_clean$COD_FID)
-table(address_clean$REGION)
+knitr::kable(head(churn))
+```
 
+4. Assigning to each customer a target 0/1 variable such that 1 is assigned to customers who churned in the holout period:
 
-#-- left join
-
-churn <- left_join(churn, account_clean[, c("ID_CLI", "TYP_JOB")], by = "ID_CLI")
-
-churn <- left_join(churn, fidelity_clean[, c("ID_CLI", "COD_FID")], by = "ID_CLI")
-
-region <- left_join(account_clean[, c("ID_CLI", "ID_ADDRESS")], address_clean[, c("ID_ADDRESS", "REGION")], by = "ID_ADDRESS")
-
-churn <- left_join(churn, region, by = "ID_CLI")
-churn
-
-#-- churn #-- data di holdout: 30 gennaio
-churn_holdout <- tickets_clean %>%
-  filter(DIREZIONE == 1,
-         TIC_DATE < as.Date("28/02/2019", format = "%d/%m/%Y"),
-         TIC_DATE > as.Date("01/01/2019", format = "%d/%m/%Y"))
-churn_holdout
-
-no_churner <- unique(churn_holdout$ID_CLI)
-
+```{r Assign to Churn}
 churn$CHURN <- 1
 
 for (i in c(1:nrow(churn))){
@@ -1800,66 +1835,96 @@ churn$CHURN <- as.factor(churn$CHURN)
 
 table(churn$CHURN)
 #-- la maggior parte delle persone ha acquistato tra il 1 ottobre e il 1 gennaio 1 o 2 volte, quindi è plausibile che la maggior di loro non siano tornati tra il 1 gennaio ed il 28 febbraio (negozio con acquisti rari)
+#-- non può essere messo in rel con la next purchase curve perchè nel dataset tickets_clean uno stesso cliente è considerato nel momento in cui ritorna, mentre in questo caso viene considerato una sola volta (35% vs 75%)
 ```
 
+5. Defining a set of potentially relevant predictors variables to be computed within the lookback period:
 
-```{r}
+* RECENCY;
+* SPESA;
+* TOT_PURCHASE;
+* REGION;
+* LAST_COD_FID;
+* TYP_JOB.
+
+```{r Adding Interesting Variables Churn}
+churn <- left_join(churn, account_clean[, c("ID_CLI", "TYP_JOB")], by = "ID_CLI")  #-- Add Type Job
+churn <- left_join(churn, fidelity_clean[, c("ID_CLI", "LAST_COD_FID")], by = "ID_CLI") #-- Add Type of Fidelity Card
+region <- left_join(account_clean[, c("ID_CLI", "ID_ADDRESS")],
+                    address_clean[, c("ID_ADDRESS", "REGION")], by = "ID_ADDRESS") #-- Add Region
+churn <- left_join(churn, region, by = "ID_CLI")
+churn <- churn[, -8]
+
+knitr::kable(head(churn))
+```
+
+### Model
+
+Model to evaluate:
+
+* rf, log reg, tree, svm
+
+```{r Train Test Split}
 churn <- na.omit(churn)
 
-#-- rf, log reg, tree, gradient boosting, svm
 train_index <- createDataPartition(churn$CHURN, 
                                    p = .70, 
                                    list = FALSE, 
                                    times = 1)
 
-
-
+#-- Train Test Split
 train <- churn[train_index,]
 test <- churn[-train_index,]
 
 table(train$CHURN)
 ```
 
-
-```{r}
+```{r Tree}
 #Recursive Partitioning And Regression Trees
-tree <- rpart(CHURN ~ ., data = train)
+tree <- rpart(CHURN ~ RECENCY + SPESA + TOT_PURCHASE + REGION + LAST_COD_FID + TYP_JOB,
+              data = train)
+
 rpart.plot(tree, extra = "auto")
-summary(tree) #num di acquisti è la variabile più importante
-printcp(tree) #complexity parameter
+
+summary(tree) #-- num di acquisti è la variabile più importante
+printcp(tree) #-- complexity parameter
 ```
 
-
-```{r}
+```{r Random Forest}
 #Random Forest
 memory.limit(100000)
-tree_rf <- randomForest::randomForest(CHURN ~ ., data= train, ntree = 100)
+
+tree_rf <- randomForest::randomForest(CHURN ~ RECENCY + SPESA + TOT_PURCHASE +
+                                        REGION + LAST_COD_FID + TYP_JOB,
+                                      data = train, ntree = 100)
 print(tree_rf)
+
 #prediction rf
-pred_rf <- rpart.predict(tree_rf, test[,-1], type = "class")
-confusionMatrix(pred_rf, test$CHURN)
+#pred_rf <- rpart.predict(tree_rf, test[,-1], type = "class")
+#confusionMatrix(pred_rf, test$CHURN)
 ```
 
-
-```{r}
+```{r Logistic}
 #Logistic
-logistic <- glm(CHURN ~. , family = binomial, data=train)
+logistic <- glm(CHURN ~ RECENCY + SPESA + TOT_PURCHASE +
+                  REGION + LAST_COD_FID + TYP_JOB,
+                family = binomial, data=train)
+
 summary(logistic)
 
 #prediction rpart
-pred <- rpart.predict(tree, test[,-],type = "class")
-p1 <- unlist(pred)
-confusionMatrix( p1, test$CHURN)
+#pred <- rpart.predict(tree, test[,-],type = "class")
+#p1 <- unlist(pred)
+#confusionMatrix( p1, test$CHURN)
 ```
 
-```{r}
-# ricodificare y
-gbm1 <- train(CHURN~., data=train, method='gbm',
-                      trControl=trainControl(method="cv", number=10, search="grid", 
-                      summaryFunction = twoClassSummary, classProbs = TRUE), 
-                      metric=metric, tuneLength=5)
-# sul train senza preprocessing
-gbm1
-confusionMatrix(gbm1)
+```{r SVM}
+trctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
+
+SVM <- train(CHURN ~ RECENCY + SPESA + TOT_PURCHASE +
+                 REGION + LAST_COD_FID + TYP_JOB, data = train, 
+                 method = 'svmLinear',
+             preProcess = c("center", "scale"),
+             tuneLength = 10)
 ```
 
